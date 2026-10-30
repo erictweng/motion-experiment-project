@@ -3,7 +3,7 @@
 A practice "SaaS launch video" job, run end to end in code: brief → storyboard → Remotion build → polish.
 The product, **Patchnote**, is made up: a GitHub app that turns a week's merged PRs into release notes.
 
-**Result:** [`media/patchnote-launch-16x9.mp4`](media/patchnote-launch-16x9.mp4) · 30s · 1920×1080 · 60fps · H.264 + AAC · ~12.6 MB
+**Result:** [`media/patchnote-launch-16x9.mp4`](media/patchnote-launch-16x9.mp4) · 30s · 1920×1080 · 60fps · H.264 + AAC · ~17.4 MB
 
 Every frame and every sound is produced by code. No After Effects, no hand-set keyframes, no screenshots, no stock audio.
 
