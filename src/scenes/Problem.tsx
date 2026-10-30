@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, interpolateColors, Sequence, useCurrentFrame } from "remotion";
-import { BACKDROP, CLOCK, COLORS, COPY, DUR, EASE, HANDOFF, INTER, MONO, PRS, STATS, THIRD } from "../theme";
+import { BACKDROP, BRAND, CLOCK, COLORS, COPY, DUR, EASE, HANDOFF, INTER, MONO, PRS, STATS, THIRD } from "../theme";
 import { camTransform, cameraAt, enterAt, inOutAt, shakeAt } from "../anim";
 import { Window } from "../components/Window";
 import { Cursor, CursorKey } from "../components/Cursor";
@@ -357,7 +357,7 @@ export const Problem: React.FC = () => {
             width: BAND_W,
             height: 1700,
             transform: `rotate(${TILT_DEG}deg)`,
-            background: `linear-gradient(90deg, transparent, ${COLORS.accent}cc 30%, #C9BAFF 50%, ${COLORS.accent}cc 70%, transparent)`,
+            background: `linear-gradient(90deg, transparent, ${COLORS.accent}cc 30%, ${BRAND.highlight} 50%, ${COLORS.accent}cc 70%, transparent)`,
             filter: "blur(28px)",
             mixBlendMode: "screen",
             opacity: bandO,

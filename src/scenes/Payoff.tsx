@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { BACKDROP, CLOCK, COLORS, COPY, DUR, EASE, INTER, MONO, SCENES, STATS, THIRD } from "../theme";
+import { BACKDROP, BRAND, CLOCK, COLORS, COPY, DUR, EASE, INTER, MONO, SCENES, STATS, THIRD } from "../theme";
 import { camTransform, cameraAt, enterAt, exitAt, inOutAt, lerp } from "../anim";
 import { Window } from "../components/Window";
 import { ClockPill } from "../components/ClockPill";
@@ -84,7 +84,7 @@ const Reaction: React.FC<{ frame: number; emoji: string; to: number; from: numbe
         gap: 8,
         padding: "8px 16px",
         borderRadius: 999,
-        background: "rgba(124,92,255,0.18)",
+        background: BRAND.soft(0.18),
         border: `1px solid ${COLORS.accent}66`,
         fontSize: 38,
         fontWeight: 800,

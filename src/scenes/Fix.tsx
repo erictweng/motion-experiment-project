@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { BACKDROP, CATEGORIES, CHIPS, CLOCK, COLORS, COPY, DUR, EASE, INTER, MONO, SCENES, STATS, UI } from "../theme";
+import { BACKDROP, BRAND, CATEGORIES, CHIPS, FILLER, CLOCK, COLORS, COPY, DUR, EASE, INTER, MONO, SCENES, STATS, UI } from "../theme";
 import { camTransform, cameraAt, enterAt, exitAt, inOutAt, lerp } from "../anim";
 import { Cursor, CursorKey } from "../components/Cursor";
 import { ClockPill } from "../components/ClockPill";
@@ -21,7 +21,8 @@ const B = {
   click: 120, // 3f press on Generate notes
   anticipate: [126, 142] as const, // stack lifts before the burst
   launch: 142, // first chip leaves; then every 2f
-  chipStagger: 2,
+  chipStagger: 2, // max gap between launches; more chips share the same sortWindow
+  sortWindow: 94, // launch window for all chips (47 chips × 2f)
   flight: 30,
   columnsIn: 128,
   push: [150, 195] as const, // camera push into the columns (45f)
@@ -48,19 +49,36 @@ export const CARD = { x: 520, y: 200, w: 880 };
 export const PUBLISH = { x: 1150, y: 790, w: 250, h: 80 };
 const STACK_SCALE = 1.9;
 
+// Chips per column: at most one 2×12 grid. Past that, the last slot is a "+N more" chip.
+const GRID_SLOTS = 24;
+const FILLER_START = Math.min(...CHIPS.map((c) => c.num)) - 1;
+type Chip = { id: string; num: number; label: string; cat: (typeof CATEGORIES)[number]["id"]; more?: number };
+const columnChips: Chip[][] = (() => {
+  let fillerNum = FILLER_START;
+  return CATEGORIES.map((cat) => {
+    const overflow = cat.count > GRID_SLOTS;
+    const real = overflow ? GRID_SLOTS - 1 : cat.count;
+    const named: Chip[] = CHIPS.filter((c) => c.cat === cat.id).slice(0, real).map((c) => ({ ...c, id: `${c.num}` }));
+    const filler: Chip[] = Array.from({ length: real - named.length }, (_, k) => {
+      const num = fillerNum--;
+      return { id: `${num}`, num, label: FILLER[(num * 7) % FILLER.length], cat: cat.id };
+    });
+    const more: Chip[] = overflow ? [{ id: `more-${cat.id}`, num: 0, label: "", cat: cat.id, more: cat.count - real }] : [];
+    return [...named, ...filler, ...more];
+  });
+})();
+const shownIn = (colIdx: number) => columnChips[colIdx].length;
+
 // Launch order: interleave categories proportionally so all three columns fill together.
-const withIdx = CHIPS.map((c) => {
-  const inCat = CHIPS.filter((x) => x.cat === c.cat);
-  return { ...c, slot: inCat.indexOf(c), colIdx: CATEGORIES.findIndex((k) => k.id === c.cat) };
-});
+const withIdx = columnChips.flatMap((col, colIdx) => col.map((c, slot) => ({ ...c, slot, colIdx })));
 const ordered = [...withIdx].sort(
-  (a, b) =>
-    (a.slot + 0.5) / CATEGORIES[a.colIdx].count - (b.slot + 0.5) / CATEGORIES[b.colIdx].count || a.colIdx - b.colIdx,
+  (a, b) => (a.slot + 0.5) / shownIn(a.colIdx) - (b.slot + 0.5) / shownIn(b.colIdx) || a.colIdx - b.colIdx,
 );
+const stagger = Math.min(B.chipStagger, B.sortWindow / ordered.length);
 const chips = ordered.map((c, o) => ({
   ...c,
   order: o,
-  launch: B.launch + B.chipStagger * o,
+  launch: B.launch + stagger * o,
   rot: (((o * 37) % 13) - 6) * 1.4, // fixed fan angle per chip (deterministic)
 }));
 const landAt = (c: (typeof chips)[number]) => c.launch + B.flight;
@@ -112,7 +130,7 @@ const Check: React.FC<{ size: number; color: string }> = ({ size, color }) => (
   </svg>
 );
 
-const ChipBox: React.FC<{ num: number; label: string; style?: React.CSSProperties }> = ({ num, label, style }) => (
+const ChipBox: React.FC<{ num: number; label: string; more?: number; style?: React.CSSProperties }> = ({ num, label, more, style }) => (
   <div
     style={{
       position: "absolute",
@@ -134,8 +152,14 @@ const ChipBox: React.FC<{ num: number; label: string; style?: React.CSSPropertie
       ...style,
     }}
   >
-    <span style={{ color: COLORS.muted }}>#{num}</span>
-    <span>{label}</span>
+    {more ? (
+      <span style={{ color: UI.accentText, fontWeight: 600 }}>+{more.toLocaleString("en-US")} more</span>
+    ) : (
+      <>
+        <span style={{ color: COLORS.muted }}>#{num}</span>
+        <span>{label}</span>
+      </>
+    )}
   </div>
 );
 
@@ -241,7 +265,10 @@ const Columns: React.FC<{ frame: number }> = ({ frame }) => (
       const cy = COL.top + COL.h / 2;
       const dx = (CARD.x + CARD.w / 2 - cx) * q;
       const dy = (CARD.y + 260 - cy) * q;
-      const landed = chips.filter((c) => c.cat === cat.id && frame >= landAt(c));
+      const landed = chips.filter((c) => c.colIdx === i && frame >= landAt(c));
+      const done = landed.length === shownIn(i);
+      // Header climbs to the real count as the representative chips land.
+      const shownCount = done ? cat.count : Math.round((cat.count * landed.length) / shownIn(i));
       const lastLand = landed.length ? Math.max(...landed.map(landAt)) : -99;
       const pop = interpolate(frame - lastLand, [0, 3, 10], [1, 1.18, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: EASE.out });
       if (frame < B.columnsIn) return null;
@@ -269,12 +296,12 @@ const Columns: React.FC<{ frame: number }> = ({ frame }) => (
                 marginLeft: "auto",
                 fontFamily: MONO,
                 fontSize: 46, // the number that matters in 3B: phone-readable
-                color: landed.length === cat.count ? COLORS.text : COLORS.muted,
+                color: done ? COLORS.text : COLORS.muted,
                 transform: `scale(${pop})`,
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {landed.length}
+              {shownCount}
             </span>
           </div>
           {landed.map((c) => {
@@ -283,13 +310,14 @@ const Columns: React.FC<{ frame: number }> = ({ frame }) => (
             const g = interpolate(frame - landAt(c), [0, 12], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: EASE.out });
             return (
               <ChipBox
-                key={c.num}
+                key={c.id}
                 num={c.num}
                 label={c.label}
+                more={c.more}
                 style={{
                   left: p.x,
                   top: p.y,
-                  borderColor: g > 0.01 ? `rgba(124,92,255,${0.3 + 0.7 * g})` : undefined,
+                  borderColor: g > 0.01 ? BRAND.soft(0.3 + 0.7 * g) : undefined,
                   boxShadow: g > 0.01 ? `0 0 ${18 * g}px ${COLORS.accent}88, 0 6px 14px rgba(0,0,0,0.35)` : undefined,
                 }}
               />
@@ -320,9 +348,10 @@ const ChipStack: React.FC<{ frame: number }> = ({ frame }) => {
         const s = stackPos(c.order - top);
         return (
           <ChipBox
-            key={c.num}
+            key={c.id}
             num={c.num}
             label={c.label}
+            more={c.more}
             style={{
               left: s.x - CHIP.w / 2,
               top: s.y - CHIP.h / 2,
@@ -368,12 +397,13 @@ const FlyingChips: React.FC<{ frame: number }> = ({ frame }) => (
           ? BLUR_SAMPLES.map((o, k) => ({ ...chipPose(c, frame - (SHUTTER * (k + 1)) / BLUR_SAMPLES.length), o }))
           : [];
         return (
-          <React.Fragment key={c.num}>
+          <React.Fragment key={c.id}>
             {poses.reverse().map((q, k) => (
               <ChipBox
                 key={k}
                 num={c.num}
                 label={c.label}
+                more={c.more}
                 style={{
                   left: q.x - CHIP.w / 2,
                   top: q.y - CHIP.h / 2,
@@ -388,6 +418,7 @@ const FlyingChips: React.FC<{ frame: number }> = ({ frame }) => (
             <ChipBox
               num={c.num}
               label={c.label}
+              more={c.more}
               style={{
                 left: now.x - CHIP.w / 2,
                 top: now.y - CHIP.h / 2,

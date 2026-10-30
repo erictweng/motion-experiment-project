@@ -1,5 +1,6 @@
 import { Easing, staticFile } from "remotion";
 import { loadFont } from "@remotion/fonts";
+import { alpha, shift, tint } from "./color";
 
 // Fonts load before the first frame renders (fixes the Times New Roman fallback).
 // Bundled locally in public/fonts (same Inter / JetBrains Mono files Google serves),
@@ -19,9 +20,17 @@ export const COLORS = {
   border: "#262B36",
   text: "#F2F4F8",
   muted: "#8A93A6",
-  accent: "#7C5CFF",
+  accent: "#7C5CFF", // the brand color. Every violet tint, glow and highlight derives from this one value (see BRAND)
   success: "#3DDC97",
   danger: "#FF5C5C",
+};
+
+// Brand tints, all derived from COLORS.accent so a recolor note is a one-line edit.
+export const BRAND = {
+  companion: shift(COLORS.accent, -24.2, 0.855, 0.871), // second backdrop glow (#3E63F0 for the violet accent)
+  text: tint(COLORS.accent, 0.46), // accent-colored text on dark UI
+  highlight: tint(COLORS.accent, 0.58), // bright core of the 2D wipe band
+  soft: (a: number) => alpha(COLORS.accent, a), // translucent accent fills and borders
 };
 
 // Scene timing in frames (60fps). Source of truth = storyboard/STORYBOARD.md
@@ -115,29 +124,41 @@ export const BACKDROP = {
     { color: "#2B3447", x: 1560, y: 820, r: 820, opacity: 0.4, phase: 2.1 },
   ],
   brand: [
-    { color: "#7C5CFF", x: 1480, y: 220, r: 780, opacity: 0.16, phase: 0.6 },
-    { color: "#3E63F0", x: 320, y: 900, r: 820, opacity: 0.14, phase: 2.4 },
-    { color: "#7C5CFF", x: 900, y: 1150, r: 600, opacity: 0.08, phase: 4.0 },
+    { color: COLORS.accent, x: 1480, y: 220, r: 780, opacity: 0.16, phase: 0.6 },
+    { color: BRAND.companion, x: 320, y: 900, r: 820, opacity: 0.14, phase: 2.4 },
+    { color: COLORS.accent, x: 900, y: 1150, r: 600, opacity: 0.08, phase: 4.0 },
   ],
 };
 
 // Patchnote's own UI tokens (violet belongs to Patchnote only).
 export const UI = {
   sidebar: "#0F1219",
-  accentSoft: "rgba(124,92,255,0.22)",
-  accentText: "#B9A6FF",
+  accentSoft: BRAND.soft(0.22),
+  accentText: BRAND.text,
   chip: "#1B2030",
 };
 
-// Release-note categories. `count` is the target each column must reach; CHIPS must match.
-export const CATEGORIES = [
-  { id: "feat", label: "Features", icon: "✨", count: 12 },
-  { id: "fix", label: "Fixes", icon: "🐛", count: 23 },
-  { id: "infra", label: "Infra", icon: "🔧", count: 12 },
+// Release-note categories. `mix` is each category's share of STATS.merged; counts derive from it
+// (largest-remainder rounding, so they always add up to STATS.merged: 47 → 12 / 23 / 12).
+const CATEGORY_MIX = [
+  { id: "feat", label: "Features", icon: "✨", mix: 12 },
+  { id: "fix", label: "Fixes", icon: "🐛", mix: 23 },
+  { id: "infra", label: "Infra", icon: "🔧", mix: 12 },
 ] as const;
-export type CategoryId = (typeof CATEGORIES)[number]["id"];
+const splitCounts = (total: number, weights: readonly number[]) => {
+  const sum = weights.reduce((a, b) => a + b, 0);
+  const raw = weights.map((w) => (total * w) / sum);
+  const out = raw.map(Math.floor);
+  const order = raw.map((r, i) => ({ i, frac: r - Math.floor(r) })).sort((a, b) => b.frac - a.frac || a.i - b.i);
+  for (let k = 0; k < total - out.reduce((a, b) => a + b, 0); k++) out[order[k].i]++;
+  return out;
+};
+const counts = splitCounts(STATS.merged, CATEGORY_MIX.map((c) => c.mix));
+export const CATEGORIES = CATEGORY_MIX.map((c, i) => ({ ...c, count: counts[i] }));
+export type CategoryId = (typeof CATEGORY_MIX)[number]["id"];
 
-// The 47 PR chips that sort into columns in 3B (same titles as 2A where they overlap).
+// Named PR chips that sort into columns in 3B (same titles as 2A where they overlap). Fix.tsx shows these
+// first; a column with more PRs than named chips gets FILLER titles, and one past its grid gets a "+N more" chip.
 const chip = (cat: CategoryId) => (num: number, label: string) => ({ num, label, cat });
 const feat = chip("feat");
 const fix = chip("fix");
@@ -156,12 +177,10 @@ export const CHIPS = [
   infra(1282, "Postgres 16"), infra(1272, "Slim images"), infra(1263, "Lint rules"), infra(1253, "Build cache"),
   infra(1246, "Deps bump"), infra(1242, "Log sampling"), infra(1238, "Feature flags"), infra(1234, "Preview envs"),
 ];
-// Guard the 47 thread: columns must add up to STATS.merged (12 + 23 + 12).
-for (const c of CATEGORIES) {
-  const n = CHIPS.filter((x) => x.cat === c.id).length;
-  if (n !== c.count) throw new Error(`CHIPS has ${n} ${c.label}, expected ${c.count}`);
-}
-if (CHIPS.length !== STATS.merged) throw new Error(`CHIPS has ${CHIPS.length}, STATS.merged is ${STATS.merged}`);
+// Generic titles for PRs beyond the named pool (only used when STATS.merged grows past the named chips).
+export const FILLER = ["Copy tweaks", "Test cleanup", "Refactor", "Typo fix", "Deps bump", "Docs update", "Log cleanup", "Small fix"];
+// Guard the 47 thread: columns must add up to STATS.merged.
+if (CATEGORIES.reduce((a, c) => a + c.count, 0) !== STATS.merged) throw new Error("Category counts must add up to STATS.merged");
 
 export const COPY = {
   hook: {
