@@ -34,6 +34,7 @@ const cues = (): Cue[] => {
   add(Y + PAYOFF_SFX.pmMsg, "ping.wav", AUDIO.ping * 0.7, "PM reply");
   add(Y + PAYOFF_SFX.reactions, "pop.wav", AUDIO.pop * 0.7, "reactions");
   add(Y + PAYOFF_SFX.logo, "hit.wav", AUDIO.hit, "logo hit");
+  add(Y + PAYOFF_SFX.ctaPress, "click.wav", AUDIO.click, "CTA click");
   return list;
 };
 

@@ -1,12 +1,13 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { CLOCK, COLORS, COPY, DUR, EASE, INTER, MONO, STATS, THIRD } from "../theme";
+import { BACKDROP, CLOCK, COLORS, COPY, DUR, EASE, INTER, MONO, SCENES, STATS, THIRD } from "../theme";
 import { camTransform, cameraAt, enterAt, exitAt, inOutAt, lerp } from "../anim";
 import { Window } from "../components/Window";
 import { ClockPill } from "../components/ClockPill";
 import { Caption } from "../components/Caption";
 import { LogoMark } from "../components/LogoMark";
-import { cursorPos, CursorGlyph } from "../components/Cursor";
+import { Backdrop } from "../components/Backdrop";
+import { Cursor, cursorPos, CursorGlyph } from "../components/Cursor";
 import { CARD, FIX_END_SCALE, FIX_LAST_FRAME, PUBLISH_CURSOR, PublishButton, ReleaseCard } from "./Fix";
 
 // Scene 4 — PAYOFF (frames 1440–1800 global, 0–360 local). Board 4A f1530 · 4B f1760.
@@ -23,10 +24,13 @@ const B = {
   cardsOut: 200, // exits ~18f, 3f stagger
   logoIn: 212,
   taglineIn: 226,
-  urlIn: 236,
+  ctaIn: 240, // CTA holds 240→360 (120f, ≥ 90f)
+  urlIn: 252,
+  ctaCursorIn: 262,
+  ctaPress: 306,
 };
 
-const CARD_H = 534; // finished release card height (world px)
+const CARD_H = 545; // finished release card height (world px, measured from render at f1439)
 const CARD_CENTER = { x: CARD.x + CARD.w / 2, y: CARD.y + CARD_H / 2 };
 
 // Destination layout (world px). The release card itself becomes the changelog page.
@@ -59,7 +63,8 @@ const ChangelogCard: React.FC<{ frame: number }> = ({ frame }) => {
           position: "absolute",
           inset: 0,
           transformOrigin: `${CARD_CENTER.x}px ${CARD_CENTER.y}px`,
-          transform: `translate(${x - CARD_CENTER.x}px, ${y - CARD_CENTER.y}px) rotate(${d.rot * p}deg) scale(${s})`,
+          // Slight 3D turn toward center as it fans out (depth).
+          transform: `translate(${x - CARD_CENTER.x}px, ${y - CARD_CENTER.y}px) perspective(1800px) rotateY(${12 * p}deg) rotate(${d.rot * p}deg) scale(${s})`,
         }}
       >
         <ReleaseCard frame={FIX_LAST_FRAME} badgeOpacity={exitAt(frame, B.handoffOut)} />
@@ -81,7 +86,7 @@ const Reaction: React.FC<{ frame: number; emoji: string; to: number; from: numbe
         borderRadius: 999,
         background: "rgba(124,92,255,0.18)",
         border: `1px solid ${COLORS.accent}66`,
-        fontSize: 24,
+        fontSize: 38,
         fontWeight: 800,
         color: COLORS.text,
         fontVariantNumeric: "tabular-nums",
@@ -166,7 +171,7 @@ const EmailCard: React.FC<{ frame: number }> = ({ frame }) => {
           boxShadow: "0 30px 80px rgba(0,0,0,0.55)",
           fontFamily: INTER,
           opacity: Math.min(1, p * 1.6),
-          transform: `translate(${tx}px, ${ty}px) rotate(${d.rot * p}deg) scale(${0.8 + 0.2 * p})`,
+          transform: `translate(${tx}px, ${ty}px) perspective(1800px) rotateY(${-12 * p}deg) rotate(${d.rot * p}deg) scale(${0.8 + 0.2 * p})`,
         }}
       >
         <div style={{ height: 52, display: "flex", alignItems: "center", padding: "0 26px", background: "#E9EAE6", fontSize: 18, fontWeight: 600, color: THIRD.docMuted }}>
@@ -210,10 +215,22 @@ const Handoff: React.FC<{ frame: number }> = ({ frame }) => {
   );
 };
 
+export const CTA_ID = "cta-button";
 const Logo: React.FC<{ frame: number }> = ({ frame }) => {
   const p = enterAt(frame, B.logoIn);
   const tag = enterAt(frame, B.taglineIn);
   const url = enterAt(frame, B.urlIn);
+  const cta = enterAt(frame, B.ctaIn);
+  const d = frame - B.ctaPress;
+  const press =
+    d >= 0 && d < DUR.press * 2
+      ? d < DUR.press
+        ? interpolate(d, [0, DUR.press], [1, 0.96], { easing: EASE.inOut })
+        : interpolate(d, [DUR.press, DUR.press * 2], [0.96, 1], { easing: EASE.out })
+      : 1;
+  const flash = interpolate(d, [0, 4, 30], [0, 1, 0.4], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: EASE.out });
+  // Gentle breathing glow while it waits for the click (frame-driven).
+  const breathe = 0.5 + 0.5 * Math.sin((frame - B.ctaIn) / 9);
   const drift = interpolate(frame, [B.logoIn, 360], [1, 1.01], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: EASE.inOut });
   if (frame < B.logoIn) return null;
   return (
@@ -245,11 +262,35 @@ const Logo: React.FC<{ frame: number }> = ({ frame }) => {
           {C.tagline}
         </div>
         <div
+          id={CTA_ID}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 18,
+            marginTop: 52,
+            padding: "26px 50px",
+            borderRadius: 22,
+            background: COLORS.accent,
+            color: "#fff",
+            fontSize: 46,
+            fontWeight: 800,
+            letterSpacing: -0.5,
+            opacity: Math.min(1, cta * 1.5),
+            transform: `translateY(${(1 - cta) * 30}px) scale(${(0.92 + 0.08 * cta) * press})`,
+            boxShadow: `0 0 ${50 + 20 * breathe + 70 * flash}px ${COLORS.accent}${flash > 0.05 ? "cc" : "88"}`,
+          }}
+        >
+          {C.cta}
+          <svg width={40} height={40} viewBox="0 0 24 24">
+            <path d="M5 12 H18 M12.5 6.5 L18 12 L12.5 17.5" fill="none" stroke="#fff" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+        <div
           style={{
             fontFamily: MONO,
             fontSize: 40,
-            color: COLORS.accent,
-            marginTop: 34,
+            color: COLORS.muted,
+            marginTop: 30,
             opacity: Math.min(1, url * 1.5),
             transform: `translateY(${(1 - url) * 20}px)`,
           }}
@@ -270,6 +311,7 @@ export const Payoff: React.FC = () => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.bg, fontFamily: INTER, overflow: "hidden" }}>
+      <Backdrop tones={BACKDROP.brand} frameOffset={SCENES.payoff.from} />
       <AbsoluteFill
         style={{
           background: `radial-gradient(ellipse 50% 45% at 50% 50%, ${COLORS.accent}33, transparent 70%)`,
@@ -291,6 +333,17 @@ export const Payoff: React.FC = () => {
       />
       <Caption text={C.caption} from={B.caption[0]} to={B.caption[1]} />
       <Logo frame={frame} />
+      {/* CTA button measured from render: x 645–1273, y 610–717. Cursor rests below the label. */}
+      <Cursor
+        keys={[
+          { f: B.ctaCursorIn, x: 1520, y: 1020 },
+          { f: B.ctaPress - 6, x: 1150, y: 702, arc: 0.3 },
+          { f: B.ctaPress, x: 1144, y: 698 },
+          { f: 360, x: 1138, y: 694 },
+        ]}
+        clicks={[B.ctaPress]}
+        appear={B.ctaCursorIn}
+      />
     </AbsoluteFill>
   );
 };
@@ -302,4 +355,5 @@ export const PAYOFF_SFX = {
   reactions: B.reactions[0],
   pmMsg: B.pmMsg,
   logo: B.logoIn,
+  ctaPress: B.ctaPress,
 };

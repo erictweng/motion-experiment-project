@@ -105,6 +105,22 @@ export const PRS = [
   { num: 1266, title: "Bulk-archive projects" },
 ];
 
+// Film grain (finish pass). Grain is costly for H.264: keep it subtle and check the file size.
+export const GRAIN = { enabled: false, opacity: 0.05 }; // off: invisible at 0.05, and visible grain would push the file past budget
+
+// Ambient backdrops (depth pass). Problem stays neutral; violet arrives with Patchnote.
+export const BACKDROP = {
+  neutral: [
+    { color: "#3A4660", x: 380, y: 260, r: 760, opacity: 0.35, phase: 0 },
+    { color: "#2B3447", x: 1560, y: 820, r: 820, opacity: 0.4, phase: 2.1 },
+  ],
+  brand: [
+    { color: "#7C5CFF", x: 1480, y: 220, r: 780, opacity: 0.16, phase: 0.6 },
+    { color: "#3E63F0", x: 320, y: 900, r: 820, opacity: 0.14, phase: 2.4 },
+    { color: "#7C5CFF", x: 900, y: 1150, r: 600, opacity: 0.08, phase: 4.0 },
+  ],
+};
+
 // Patchnote's own UI tokens (violet belongs to Patchnote only).
 export const UI = {
   sidebar: "#0F1219",
@@ -205,6 +221,7 @@ export const COPY = {
     emailBody: "Sign in with Okta, dark mode for Settings, and faster exports.",
     emailCta: "Read the changelog",
     tagline: "Ship it. We'll write it up.",
+    cta: "Install free on GitHub",
     url: "patchnote.dev",
   },
 };

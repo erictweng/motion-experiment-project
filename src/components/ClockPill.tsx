@@ -58,27 +58,27 @@ export const ClockPill: React.FC<{ beats: ClockBeat[]; opacity?: number; y?: num
           border: `2px solid ${border}`,
           boxShadow: cur.tone === "neutral" ? "none" : `0 0 ${24 * flip}px ${border}66`,
           fontFamily: MONO,
-          fontSize: 34,
+          fontSize: 40,
           color,
           transform: `scale(${pop})`,
         }}
       >
-        <svg width={34} height={34} viewBox="-17 -17 34 34">
+        <svg width={40} height={40} viewBox="-17 -17 34 34">
           <circle r={14} fill="none" stroke={color} strokeWidth={3} />
           <line x1={0} y1={0} x2={0} y2={-6} stroke={color} strokeWidth={3.2} strokeLinecap="round" transform={`rotate(${hourDeg})`} />
           <line x1={0} y1={0} x2={0} y2={-10.5} stroke={color} strokeWidth={2} strokeLinecap="round" transform={`rotate(${minuteDeg})`} />
           <circle r={2.4} fill={color} />
         </svg>
-        <div style={{ position: "relative", overflow: "hidden", height: 40, lineHeight: "40px" }}>
-          <div style={{ transform: `translateY(${(1 - flip) * 40}px)`, opacity: flip }}>{cur.time}</div>
+        <div style={{ position: "relative", overflow: "hidden", height: 48, lineHeight: "48px" }}>
+          <div style={{ transform: `translateY(${(1 - flip) * 48}px)`, opacity: flip }}>{cur.time}</div>
           {idx > 0 && flip < 1 ? (
-            <div style={{ position: "absolute", top: 0, transform: `translateY(${-flip * 40}px)`, opacity: 1 - flip }}>
+            <div style={{ position: "absolute", top: 0, transform: `translateY(${-flip * 48}px)`, opacity: 1 - flip }}>
               {prev.time}
             </div>
           ) : null}
         </div>
         {cur.check ? (
-          <svg width={26} height={26} viewBox="0 0 20 20" style={{ opacity: flip, transform: `scale(${0.6 + 0.4 * flip})` }}>
+          <svg width={30} height={30} viewBox="0 0 20 20" style={{ opacity: flip, transform: `scale(${0.6 + 0.4 * flip})` }}>
             <path d="M4 10.5 L8.3 14.5 L16 5.5" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         ) : null}

@@ -7,6 +7,8 @@ import { Fix } from "./scenes/Fix";
 import { Payoff } from "./scenes/Payoff";
 import { MatchCut } from "./scenes/MatchCut";
 import { Soundtrack } from "./Soundtrack";
+import { Grain, Vignette } from "./components/Backdrop";
+import { GRAIN } from "./theme";
 
 // Layer order matters: later children draw on top.
 //  · Problem starts PROBLEM_LEAD frames early (transparent) so its code-host window fades up behind the Hook (1D).
@@ -39,6 +41,8 @@ export const LaunchVideo: React.FC = () => {
       <Sequence from={SCENES.hook.duration - HANDOFF.matchCut} durationInFrames={HANDOFF.matchCut + 6} name="1D Match cut">
         <MatchCut />
       </Sequence>
+      <Vignette />
+      {GRAIN.enabled ? <Grain opacity={GRAIN.opacity} /> : null}
       <Soundtrack />
     </AbsoluteFill>
   );

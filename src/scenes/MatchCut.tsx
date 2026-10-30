@@ -1,16 +1,21 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { COLORS, EASE, HANDOFF, INTER, SCENES, STATS } from "../theme";
+import { BADGE_WORLD, problemCam } from "./Problem";
 
 // 1D match cut: the Hook's big "47" shrinks and arcs into the "47 Merged" badge (14f), then hands off.
 // Runs in its own Sequence from (hook end − HANDOFF.matchCut). Frame 0 is pixel-identical to the Hook counter.
 
 /** Hook counter center on screen at the handoff frame (measured from render). */
 const FROM = { x: 959, y: 500 };
-/** Badge digits center on screen at Scene 2 local 0 (measured from render). */
-export const BADGE_TARGET = { x: 290, y: 245.5 };
+// Badge digits on screen at Scene 2 local 0: world position (measured) through Scene 2's opening camera.
+const cam0 = problemCam(0);
+export const BADGE_TARGET = {
+  x: 960 + (BADGE_WORLD.x - cam0.cx) * cam0.s,
+  y: 540 + (BADGE_WORLD.y - cam0.cy) * cam0.s,
+};
 const HOOK_FONT = 360;
-const BADGE_FONT = 22;
+const BADGE_FONT = BADGE_WORLD.fontSize * cam0.s;
 
 const SHUTTER = 0.5; // 180° shutter, as a fraction of a frame
 const BLUR_SAMPLES = [0.3, 0.26, 0.22, 0.18, 0.14, 0.1, 0.07, 0.04];

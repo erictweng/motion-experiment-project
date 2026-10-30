@@ -1,11 +1,12 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { CATEGORIES, CHIPS, CLOCK, COLORS, COPY, DUR, EASE, INTER, MONO, STATS, UI } from "../theme";
+import { BACKDROP, CATEGORIES, CHIPS, CLOCK, COLORS, COPY, DUR, EASE, INTER, MONO, SCENES, STATS, UI } from "../theme";
 import { camTransform, cameraAt, enterAt, exitAt, inOutAt, lerp } from "../anim";
 import { Cursor, CursorKey } from "../components/Cursor";
 import { ClockPill } from "../components/ClockPill";
 import { Caption } from "../components/Caption";
 import { LogoMark } from "../components/LogoMark";
+import { Backdrop } from "../components/Backdrop";
 
 // Scene 3 — FIX (frames 720–1440 global, 0–720 local). Board 3A f790 · 3B f960 · 3C f1200 · 3D f1410.
 const C = COPY.fix;
@@ -42,7 +43,7 @@ const B = {
 const STACK = { x: 700, y: 600 };
 const BTN = { cx: 1290, cy: 620, w: 440, h: 104 };
 const COL = { x0: 340, gap: 470, top: 300, w: 450, h: 600 };
-const CHIP = { w: 205, h: 34, rowH: 42, gridTop: 80, colOffset: 213 };
+const CHIP = { w: 205, h: 34, rowH: 42, gridTop: 92, colOffset: 213 };
 export const CARD = { x: 520, y: 200, w: 880 };
 export const PUBLISH = { x: 1150, y: 790, w: 250, h: 80 };
 const STACK_SCALE = 1.9;
@@ -94,7 +95,9 @@ const camKeys = [
   { f: B.push[0], cam: { cx: 960, cy: 540, s: 1 } }, // wide through 3A (sidebar stays in frame)
   { f: B.push[1], cam: { cx: 1035, cy: 560, s: 1.2 } }, // push in on the columns; dimmed header stays in frame
   { f: B.pullBack[0], cam: { cx: 1010, cy: 565, s: 1.22 } },
-  { f: B.pullBack[1], cam: { cx: 960, cy: 540, s: 1 } }, // pull back to frame the card
+  { f: B.pullBack[1], cam: { cx: 960, cy: 485, s: 1.28 } }, // reframe straight onto the card as it types (3C)
+  { f: 570, cam: { cx: 960, cy: 492, s: 1.26 } },
+  { f: 625, cam: { cx: 960, cy: 540, s: 1 } }, // back to the full card + Publish (3D)
 ];
 
 const Sparkle: React.FC<{ size: number; color: string }> = ({ size, color }) => (
@@ -258,14 +261,14 @@ const Columns: React.FC<{ frame: number }> = ({ frame }) => (
             transform: `translate(${dx}px, ${dy + (1 - inP) * 40}px) scale(${1 - 0.7 * q})`,
           }}
         >
-          <div style={{ height: 64, display: "flex", alignItems: "center", gap: 12, padding: "0 20px", borderBottom: `1px solid ${COLORS.border}` }}>
-            <span style={{ fontSize: 26 }}>{cat.icon}</span>
-            <span style={{ fontSize: 26, fontWeight: 800, color: COLORS.text }}>{cat.label}</span>
+          <div style={{ height: 78, display: "flex", alignItems: "center", gap: 12, padding: "0 20px", borderBottom: `1px solid ${COLORS.border}` }}>
+            <span style={{ fontSize: 30 }}>{cat.icon}</span>
+            <span style={{ fontSize: 32, fontWeight: 800, color: COLORS.text }}>{cat.label}</span>
             <span
               style={{
                 marginLeft: "auto",
                 fontFamily: MONO,
-                fontSize: 28,
+                fontSize: 46, // the number that matters in 3B: phone-readable
                 color: landed.length === cat.count ? COLORS.text : COLORS.muted,
                 transform: `scale(${pop})`,
                 fontVariantNumeric: "tabular-nums",
@@ -457,7 +460,8 @@ export const ReleaseCard: React.FC<{ frame: number; badgeOpacity?: number }> = (
         border: `1px solid ${COLORS.border}`,
         boxShadow: "0 40px 100px rgba(0,0,0,0.55)",
         opacity: Math.min(1, inP * 1.5),
-        transform: `scale(${0.92 + 0.08 * inP})`,
+        // Tips up out of the folded columns (perspective entrance).
+        transform: `perspective(1600px) rotateX(${(1 - inP) * 16}deg) scale(${0.92 + 0.08 * inP})`,
         fontFamily: INTER,
         color: COLORS.text,
       }}
@@ -487,7 +491,7 @@ export const ReleaseCard: React.FC<{ frame: number; badgeOpacity?: number }> = (
             );
           }
           return (
-            <div key={i} style={{ display: "flex", gap: 14, fontSize: 29, fontWeight: 400, lineHeight: 1.4, marginBottom: 12 }}>
+            <div key={i} style={{ display: "flex", gap: 14, fontSize: 32, fontWeight: 400, lineHeight: 1.35, marginBottom: 10 }}>
               <span style={{ opacity: frame >= start ? 1 : 0 }}>{l.icon}</span>
               <span>
                 <TypedSegs segs={l.segs} shown={shown} caret={caret} />
@@ -605,6 +609,7 @@ export const Fix: React.FC = () => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.bg, fontFamily: INTER, overflow: "hidden" }}>
+      <Backdrop tones={BACKDROP.brand} frameOffset={SCENES.fix.from} />
       <div style={{ position: "absolute", width: 1920, height: 1080, transformOrigin: "0 0", transform: camTransform(cam) }}>
         <Dashboard frame={frame} />
         <Columns frame={frame} />

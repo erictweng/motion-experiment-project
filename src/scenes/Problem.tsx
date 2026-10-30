@@ -1,11 +1,12 @@
 import React from "react";
 import { AbsoluteFill, interpolate, interpolateColors, Sequence, useCurrentFrame } from "remotion";
-import { CLOCK, COLORS, COPY, DUR, EASE, HANDOFF, INTER, MONO, PRS, STATS, THIRD } from "../theme";
+import { BACKDROP, CLOCK, COLORS, COPY, DUR, EASE, HANDOFF, INTER, MONO, PRS, STATS, THIRD } from "../theme";
 import { camTransform, cameraAt, enterAt, inOutAt, shakeAt } from "../anim";
 import { Window } from "../components/Window";
 import { Cursor, CursorKey } from "../components/Cursor";
 import { ClockPill } from "../components/ClockPill";
 import { Caption } from "../components/Caption";
+import { Backdrop } from "../components/Backdrop";
 
 // Scene 2 — PROBLEM (frames 240–720 global, 0–480 local). Board 2A f300 · 2B f450 · 2C f580 · 2D f700.
 // The Sequence starts LEAD frames early (1D match cut): during local −14…0 only the code-host window
@@ -23,7 +24,7 @@ const DOC = { x: 700, y: 260, w: 760, h: 640 };
 const CHAT = { x: 1300, y: 150, w: 520, h: 560 };
 const ROW_H = 66;
 const rowY = (k: number) => GH.y + 130 + ROW_H * k + ROW_H / 2; // row center
-const LINE_H = 42;
+const LINE_H = 48;
 const LINES_TOP = DOC.y + 48 + 44 + 56 + 28;
 const lineY = (k: number) => LINES_TOP + LINE_H * k + LINE_H / 2;
 
@@ -51,7 +52,7 @@ C.pasted.forEach((line, i) => {
   const c = B.loopStart + B.loopCycle * i;
   const row = { x: 470, y: rowY(line.row) - 8 };
   // Land just past the end of the pasted text so the cursor never covers it (~13px/char at 27px Inter).
-  const doc = { x: DOC.x + 48 + line.indent * 28 + line.text.length * 13 + 36, y: lineY(i) - 6 };
+  const doc = { x: DOC.x + 48 + line.indent * 28 + line.text.length * 15.5 + 36, y: lineY(i) - 6 };
   keys.push({ f: c, ...row, arc: -0.3 }, { f: c + 3, ...row });
   keys.push({ f: c + 18, ...doc, arc: -0.3 }, { f: c + 21, ...doc });
   clicks.push(c, c + 18);
@@ -70,12 +71,32 @@ keys.push(
 );
 clicks.push(380, 430);
 
+// Camera. Phone-readable: push in on each key read, wide in between.
+const WIDE = { cx: 960, cy: 540, s: 1 };
 const camKeys = [
-  { f: 0, cam: { cx: 960, cy: 540, s: 1 } },
-  { f: 70, cam: { cx: 960, cy: 540, s: 1 } },
-  { f: lastPaste, cam: { cx: 1020, cy: 505, s: 1.12 } }, // drift toward the Doc (2B); window tops stay under the clock
-  { f: 262, cam: { cx: 960, cy: 540, s: 1 } }, // pull back so the hesitation reads wide (2C)
+  { f: 0, cam: { cx: 560, cy: 420, s: 1.85 } }, // open on the "47 Merged" badge (the 47 lands here, ~41px)
+  { f: 56, cam: WIDE }, // pull out to the wide 2A shot
+  { f: 76, cam: WIDE },
+  { f: lastPaste, cam: { cx: 1060, cy: 455, s: 1.38 } }, // push onto the messy pasted lines (2B); window tops stay under the clock
+  { f: 262, cam: WIDE }, // wide for the hesitation (2C)
+  { f: B.ping, cam: WIDE },
+  { f: B.ping + 20, cam: { cx: 1560, cy: 330, s: 1.45 } }, // punch in on "@you ETA?"
+  { f: 410, cam: { cx: 1550, cy: 335, s: 1.47 } },
+  { f: B.desat[1], cam: WIDE }, // pull back as the color drains (2D)
 ];
+
+/** Scene 2 camera at a scene-local frame (also used by the 1D match cut to find the badge on screen). */
+export const problemCam = (frame: number) => {
+  const base = cameraAt(frame, camKeys);
+  const drift = interpolate(frame, [0, END], [1, 1.02], { extrapolateLeft: "clamp", easing: EASE.inOut }); // never fully static
+  const pullBack = interpolate(frame, [B.desat[0], END], [1, 0.96], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: EASE.inOut });
+  return { ...base, s: base.s * drift * pullBack };
+};
+const FOCUS_BLUR = 3; // px, out-of-focus windows during push-ins
+const focusBlur = (px: number) => (px > 0.05 ? `blur(${px}px)` : undefined);
+
+/** "47" badge digits, world px (measured from render at the wide framing). */
+export const BADGE_WORLD = { x: 290, y: 245.5, fontSize: 22 };
 
 const MergeIcon: React.FC<{ size?: number }> = ({ size = 22 }) => (
   <svg width={size} height={size} viewBox="0 0 16 16">
@@ -173,7 +194,7 @@ const Doc: React.FC<{ frame: number }> = ({ frame }) => {
             <div key={i} style={{ height: LINE_H, display: "flex", alignItems: "center", paddingLeft: line.indent * 28 }}>
               <span
                 style={{
-                  fontSize: 27,
+                  fontSize: 32,
                   fontWeight: 400,
                   color: THIRD.docInk,
                   background: `rgba(255,229,138,${flash})`,
@@ -217,10 +238,10 @@ const ChatMsg: React.FC<{ frame: number; at: number; name: string; time: string;
       <div style={{ width: 52, height: 52, borderRadius: 12, background: avatar, flexShrink: 0 }} />
       <div>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-          <span style={{ fontSize: 22, fontWeight: 800, color: COLORS.text }}>{name}</span>
+          <span style={{ fontSize: 24, fontWeight: 800, color: COLORS.text }}>{name}</span>
           <span style={{ fontFamily: MONO, fontSize: 16, color: COLORS.muted }}>{time}</span>
         </div>
-        <div style={{ fontSize: 28, fontWeight: 600, color: COLORS.text, marginTop: 4 }}>{text}</div>
+        <div style={{ fontSize: 34, fontWeight: 600, color: COLORS.text, marginTop: 4 }}>{text}</div>
       </div>
     </div>
   );
@@ -247,10 +268,13 @@ const Chat: React.FC<{ frame: number }> = ({ frame }) => {
 export const Problem: React.FC = () => {
   const frame = useCurrentFrame() - LEAD; // scene-local frame; negative during the match-cut lead-in
 
-  const base = cameraAt(frame, camKeys);
-  const drift = interpolate(frame, [0, END], [1, 1.02], { extrapolateLeft: "clamp", easing: EASE.inOut }); // never fully static
-  const pullBack = interpolate(frame, [B.desat[0], END], [1, 0.96], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: EASE.inOut });
-  const cam = { ...base, s: base.s * drift * pullBack };
+  const cam = problemCam(frame);
+  // Rack focus weights (0 = sharp). Doc is the subject of the 2B push; chat of the CTO punch-in.
+  const docFocus = inOutAt(frame, 160, lastPaste) * (1 - inOutAt(frame, 228, 262));
+  const chatFocus = inOutAt(frame, B.ping, B.ping + 20) * (1 - inOutAt(frame, 410, B.desat[1]));
+  const blurGH = FOCUS_BLUR * Math.max(docFocus, chatFocus);
+  const blurDoc = FOCUS_BLUR * chatFocus;
+  const blurChat = FOCUS_BLUR * docFocus;
   const shake = shakeAt(frame, B.ping, 10, 14); // ~1.5% of frame height
 
   // 2D: everything drains to gray and softens while the violet band sweeps L→R.
@@ -287,10 +311,21 @@ export const Problem: React.FC = () => {
           WebkitMaskImage: mask,
         }}
       >
+        {/* Fades in after the match cut so the Hook → Scene 2 handoff stays exact. */}
+        <AbsoluteFill style={{ opacity: inOutAt(frame, 0, 60) }}>
+          <Backdrop tones={BACKDROP.neutral} />
+        </AbsoluteFill>
         <div style={{ position: "absolute", width: 1920, height: 1080, transformOrigin: "0 0", transform: camTransform(cam, shake.x, shake.y) }}>
-          <CodeHost frame={frame} />
-          <Doc frame={frame} />
-          <Chat frame={frame} />
+          {/* Rack focus: whatever isn't the subject of a push-in softens (wide shots stay sharp). */}
+          <div style={{ filter: focusBlur(blurGH) }}>
+            <CodeHost frame={frame} />
+          </div>
+          <div style={{ filter: focusBlur(blurDoc) }}>
+            <Doc frame={frame} />
+          </div>
+          <div style={{ filter: focusBlur(blurChat) }}>
+            <Chat frame={frame} />
+          </div>
           <Sequence from={LEAD} layout="none" name="Cursor">
             <Cursor
               keys={keys}
