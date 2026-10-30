@@ -1,0 +1,282 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=block" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0B0D12; --surface: #151923; --surface2: #1B2030; --border: #262B36;
+    --text: #F2F4F8; --muted: #8A93A6; --accent: #7C5CFF; --ok: #3DDC97; --bad: #FF5C5C;
+    --note: #FFD166;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #E9E6DF; font-family: Inter, sans-serif; color: #1d1d1f; }
+  .sheet { width: 1680px; padding: 40px; }
+  .sheet.wide { width: 1760px; }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; border-bottom: 3px solid #1d1d1f; padding-bottom: 14px; margin-bottom: 28px; }
+  .head h1 { font-size: 44px; font-weight: 800; letter-spacing: -1px; }
+  .head h1 span { color: var(--accent); }
+  .head .meta { font-family: 'JetBrains Mono', monospace; font-size: 17px; text-align: right; line-height: 1.5; color: #444; }
+  .purpose { font-size: 21px; margin: -10px 0 26px; color: #333; }
+  .grid { display: grid; grid-template-columns: 780px 780px; gap: 36px 40px; }
+  .grid.ov { grid-template-columns: repeat(4, 400px); gap: 18px 20px; }
+  .cell .panel { position: relative; overflow: hidden; border: 3px solid #1d1d1f; border-radius: 6px; background: var(--bg); }
+  .cell .panel > .frame { width: 1920px; height: 1080px; transform-origin: 0 0; position: absolute; left: 0; top: 0; }
+  .cap { font-size: 17px; line-height: 1.45; margin-top: 10px; }
+  .cap .id { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 16px; background: #1d1d1f; color: #fff; padding: 2px 8px; border-radius: 4px; margin-right: 8px; }
+  .cap .tc { font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #555; }
+  .cap b { font-weight: 700; }
+  .cap .next { color: #6A4BE0; font-weight: 600; }
+  .ov .cap { font-size: 13px; }
+  .ov .cap .id { font-size: 12px; }
+  .rowlabel { grid-column: 1 / -1; font-weight: 800; font-size: 20px; margin-top: 6px; border-bottom: 2px solid #1d1d1f; padding-bottom: 4px; }
+  .legend { display: flex; gap: 30px; font-size: 16px; margin-top: 30px; color: #333; align-items: center; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 44px; height: 0; border-top: 4px dashed #C99A1E; vertical-align: middle; margin-right: 8px; }
+  .legend i.box { height: 22px; width: 36px; border: 3px dashed #C99A1E; }
+  .legend i.cont { border: none; width: 18px; height: 18px; background: var(--accent); border-radius: 50%; }
+
+  /* ---------- in-frame styles (1920x1080 space) ---------- */
+  .f { position: absolute; inset: 0; background: var(--bg); color: var(--text); font-family: Inter, sans-serif; overflow: hidden; }
+  .abs { position: absolute; }
+  .win { position: absolute; background: var(--surface); border: 2px solid var(--border); border-radius: 18px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.55); }
+  .win .bar { height: 54px; background: var(--surface2); border-bottom: 2px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 10px; font-size: 20px; color: var(--muted); font-weight: 600; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+  .pr { display: flex; align-items: center; gap: 16px; padding: 18px 26px; border-bottom: 1px solid var(--border); font-size: 24px; }
+  .pr .n { font-family: 'JetBrains Mono', monospace; color: var(--muted); font-size: 20px; width: 80px; }
+  .merged { width: 26px; height: 26px; border-radius: 50%; background: #8957E5; flex: none; }
+  .badge { font-family: 'JetBrains Mono', monospace; font-weight: 700; border-radius: 999px; padding: 4px 14px; }
+  .clock { position: absolute; top: 44px; left: 50%; transform: translateX(-50%); font-family: 'JetBrains Mono', monospace; font-size: 30px; font-weight: 700; padding: 12px 26px; border-radius: 999px; background: #000a; border: 2px solid var(--border); }
+  .copy { position: absolute; left: 0; right: 0; bottom: 70px; text-align: center; font-size: 56px; font-weight: 800; letter-spacing: -1.5px; text-shadow: 0 6px 30px #000; }
+  .chip { position: absolute; font-family: 'JetBrains Mono', monospace; font-size: 20px; padding: 10px 16px; border-radius: 10px; background: var(--surface2); border: 2px solid var(--border); white-space: nowrap; }
+  .col { position: absolute; top: 300px; width: 420px; height: 600px; border-radius: 18px; border: 2px solid var(--border); background: #11141c; padding: 22px; }
+  .col h3 { font-size: 30px; font-weight: 700; display: flex; justify-content: space-between; margin-bottom: 18px; }
+  .col .c { font-family: 'JetBrains Mono', monospace; font-size: 18px; padding: 10px 14px; border-radius: 10px; background: var(--surface2); border: 2px solid var(--border); margin-bottom: 10px; }
+  .note { position: absolute; z-index: 10; font-family: 'JetBrains Mono', monospace; font-size: 30px; font-weight: 700; color: var(--note); background: #000c; padding: 6px 14px; border-radius: 8px; }
+  .camframe { position: absolute; z-index: 8; border: 6px dashed var(--note); border-radius: 6px; }
+  .camframe span { position: absolute; top: -50px; left: -6px; font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; color: var(--note); background: #000c; padding: 4px 10px; border-radius: 6px; }
+  .btn { position: absolute; background: var(--accent); color: white; font-weight: 700; border-radius: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 60px #7C5CFF88; }
+  .side { position: absolute; left: 0; top: 0; bottom: 0; width: 280px; background: #0F1219; border-right: 2px solid var(--border); padding: 40px 30px; }
+  .side .nav { font-size: 24px; color: var(--muted); padding: 14px 16px; border-radius: 10px; margin-bottom: 8px; }
+  .side .nav.on { background: var(--surface2); color: var(--text); }
+  .logo { display: flex; align-items: center; gap: 14px; font-weight: 800; font-size: 30px; letter-spacing: -0.5px; }
+  .mark { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #9B82FF, #5B3BE8); position: relative; flex: none; }
+  .mark::after { content: ''; position: absolute; left: 11px; top: 11px; width: 22px; height: 22px; border-radius: 4px; border: 4px solid white; border-right-color: transparent; transform: rotate(45deg); }
+  .rn { font-size: 30px; line-height: 1.5; margin-bottom: 18px; }
+  .rn em { font-style: normal; color: #B9A8FF; font-weight: 700; background: #7C5CFF22; padding: 0 6px; border-radius: 6px; }
+  .tag { font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); margin: 22px 0 10px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const Q = new URLSearchParams(location.search);
+const MODE = Q.get('scene') || 'all';
+
+// ---------- reusable in-frame pieces ----------
+const cursor = (x, y, opt = {}) => `
+  <svg class="abs" style="left:${x}px;top:${y}px;transform:scale(${opt.press ? 0.96 : 1});opacity:${opt.ghost ?? 1}" width="54" height="70" viewBox="0 0 27 35">
+    <path d="M2 2 L2 28 L9 21 L14 33 L19 31 L14 19 L24 19 Z" fill="white" stroke="#000" stroke-width="2" stroke-linejoin="round"/>
+  </svg>${opt.press ? `<div class="abs" style="left:${x - 26}px;top:${y - 26}px;width:52px;height:52px;border-radius:50%;border:4px solid #fff8"></div>` : ''}`;
+
+// dashed annotation arc (motion path) from a to b with bend
+const arc = (a, b, bend = -160, label = '') => {
+  const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2 + bend;
+  const ang = Math.atan2(b[1] - my, b[0] - mx);
+  const h = 30, p1 = [b[0] - h * Math.cos(ang - 0.45), b[1] - h * Math.sin(ang - 0.45)], p2 = [b[0] - h * Math.cos(ang + 0.45), b[1] - h * Math.sin(ang + 0.45)];
+  return `<svg class="abs" style="left:0;top:0;z-index:9" width="1920" height="1080">
+    <path d="M${a[0]} ${a[1]} Q${mx} ${my} ${b[0]} ${b[1]}" fill="none" stroke="#FFD166" stroke-width="7" stroke-dasharray="18 14" stroke-linecap="round"/>
+    <path d="M${p1[0]} ${p1[1]} L${b[0]} ${b[1]} L${p2[0]} ${p2[1]}" fill="none" stroke="#FFD166" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>${label ? `<div class="note" style="left:${mx - 120}px;top:${my - 30}px">${label}</div>` : ''}`;
+};
+const cam = (x, y, w, h, label) => `<div class="camframe" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"><span>${label}</span></div>`;
+const note = (x, y, t) => `<div class="note" style="left:${x}px;top:${y}px">${t}</div>`;
+const clock = (t, color = 'var(--text)', extra = '') => `<div class="clock" style="color:${color};${extra}">🕓 ${t}</div>`;
+const win = (x, y, w, h, title, body, extra = '') => `
+  <div class="win" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;${extra}">
+    <div class="bar"><span class="dot" style="background:#FF5F57"></span><span class="dot" style="background:#FEBC2E"></span><span class="dot" style="background:#28C840"></span><span style="margin-left:14px">${title}</span></div>
+    ${body}
+  </div>`;
+
+const PRS = [
+  ['#1284', 'Add SSO for Okta'], ['#1281', 'Dark mode for Settings'], ['#1279', 'Fix flaky export test'],
+  ['#1277', 'Bump Node to 22'], ['#1275', 'Faster search index'], ['#1271', 'Fix timezone bug in invites'],
+  ['#1268', 'Retry webhooks on 502'], ['#1266', 'Bulk-archive projects'],
+];
+const github = (x, y, w = 900, h = 780, extra = '', hl = false) => win(x, y, w, h, 'github.com/acme/app/pulls', `
+  <div style="padding:22px 26px;display:flex;gap:18px;align-items:center;border-bottom:2px solid var(--border);font-size:24px">
+    <span style="color:var(--muted)">Open 3</span>
+    <span class="badge" style="background:${hl ? '#7C5CFF' : '#8957E533'};color:white;font-size:24px;${hl ? 'box-shadow:0 0 40px #7C5CFF' : ''}">● 47 Merged</span>
+    <span style="color:var(--muted);margin-left:auto;font-size:20px">this week</span>
+  </div>
+  ${PRS.map(([n, t]) => `<div class="pr"><span class="merged"></span><span class="n">${n}</span>${t}</div>`).join('')}`, extra);
+
+const docLines = (n) => [
+  '- Add SSO for Okta (#1284)', 'fix flaky export test', '#1277 bump node', 'Dark mode settings??', '- faster search (i think?)',
+].slice(0, n).map((t, i) => `<div style="font-family:Georgia,serif;font-size:28px;color:#222;margin:6px 0 6px ${[0, 14, 0, 30, 6][i]}px">${t}</div>`).join('');
+const doc = (x, y, n, extra = '') => win(x, y, 760, 680, 'Release Notes — Week 43 · Google Docs', `
+  <div style="background:#F7F7F5;position:absolute;top:54px;bottom:0;left:0;right:0;padding:50px 60px">
+    <div style="font-family:Georgia,serif;font-size:44px;color:#111;margin-bottom:26px">Release Notes — Week 43</div>
+    ${docLines(n)}<div style="width:3px;height:34px;background:#111;margin-top:8px"></div>
+  </div>`, extra);
+
+const slack = (x, y, msgs, extra = '') => win(x, y, 540, 560, '# releases · Slack', `
+  <div style="padding:24px">${msgs.map(([who, t, time, red]) => `
+    <div style="display:flex;gap:16px;margin-bottom:26px">
+      <div style="width:56px;height:56px;border-radius:12px;background:${red ? '#FF5C5C' : '#E8A87C'};flex:none"></div>
+      <div><div style="font-size:22px;font-weight:700">${who} <span style="color:var(--muted);font-weight:400;font-size:18px">${time}</span></div>
+      <div style="font-size:28px;margin-top:4px">${t}</div></div>
+    </div>`).join('')}</div>`, extra);
+
+const sidebar = () => `<div class="side"><div class="logo" style="margin-bottom:50px"><div class="mark"></div>Patchnote</div>
+  <div class="nav on">Releases</div><div class="nav">Repos</div><div class="nav">Destinations</div><div class="nav">Settings</div></div>`;
+const dashHead = (extra = '') => `<div class="abs" style="left:340px;top:60px;${extra}">
+  <div style="font-size:24px;color:var(--muted);font-weight:600">acme/app</div>
+  <div style="font-size:60px;font-weight:800;letter-spacing:-1.5px">Week 43 · <span style="color:#B9A8FF">47 PRs</span> merged</div></div>`;
+
+const COLS = [['✨ Features', 12, ['#1284 SSO for Okta', '#1281 Dark mode', '#1275 Faster search', '#1266 Bulk-archive']],
+              ['🐛 Fixes', 23, ['#1279 Flaky export', '#1271 Invite timezones', '#1268 Webhook retry', '#1262 CSV encoding']],
+              ['🔧 Infra', 12, ['#1277 Node 22', '#1259 Cache headers', '#1255 CI 2× faster', '#1250 Sentry v8']]];
+const columns = (fill, extra = '') => COLS.map(([h, n, items], i) => `
+  <div class="col" style="left:${360 + i * 470}px;${extra}"><h3>${h}<span style="color:var(--muted)">${Math.round(n * fill)}</span></h3>
+  ${items.slice(0, Math.ceil(items.length * fill)).map(t => `<div class="c">${t}</div>`).join('')}</div>`).join('');
+
+const releaseCard = (lines, extra = '') => {
+  const L = [
+    ['tag', 'New'], ['rn', '✨ <em>Sign in with Okta</em> — use your company account, no new password.'],
+    ['rn', '✨ <em>Dark mode</em> comes to Settings.'], ['tag', 'Fixed'],
+    ['rn', '🐛 Exports no longer fail on large files.'], ['rn', '🐛 Invites show the right time zone.'],
+  ];
+  return `<div class="abs" style="left:520px;top:200px;width:1100px;padding:50px 60px;border-radius:24px;background:var(--surface);border:2px solid var(--border);box-shadow:0 40px 120px #000;${extra}">
+    <div style="font-size:24px;color:var(--muted);font-weight:600">acme.app/changelog</div>
+    <div style="font-size:54px;font-weight:800;letter-spacing:-1px;margin:6px 0 4px">Week 43 — What's new</div>
+    ${L.slice(0, lines).map(([c, t]) => `<div class="${c}">${t}</div>`).join('')}
+    ${lines < L.length ? '<span style="display:inline-block;width:4px;height:38px;background:var(--accent)"></span>' : ''}
+  </div>`;
+};
+
+// ---------- the 13 keyframes ----------
+const P = [
+  { s: 1, id: '1A', f: 30, act: 'Black frame. Counter starts climbing <b>0 → 47</b> (ease-out, 60f). Violet glow builds with the number.', camfx: 'Locked wide, slow push begins (100% → 104%).', next: 'Count lands at 47 → hold.',
+    html: () => `<div class="f">
+      <div class="abs" style="left:0;right:0;top:300px;text-align:center;font-size:360px;font-weight:800;letter-spacing:-12px;line-height:1;text-shadow:0 0 25px #7C5CFF">23</div>
+      ${note(1260, 360, '↑ 0→47 · 60f ease-out')}
+      ${cam(77, 43, 1766, 994, 'CAM END 104%')}</div>` },
+  { s: 1, id: '1B', f: 150, act: '<b>47</b> lands with full glow. Label "PRs merged this week." slides up 24px, 6f after the number settles.', camfx: 'Push continues, never fully static.', next: 'Deadline pill rises from bottom.',
+    html: () => `<div class="f">
+      <div class="abs" style="left:0;right:0;top:250px;text-align:center;font-size:380px;font-weight:800;letter-spacing:-12px;line-height:1;text-shadow:0 0 80px #7C5CFF">47</div>
+      <div class="abs" style="left:0;right:0;top:660px;text-align:center;font-size:66px;font-weight:600;color:var(--muted)">PRs merged this week.</div></div>` },
+  { s: 1, id: '1C', f: 225, act: 'Red pill <b>"Release notes due · 5:00 PM"</b> rises with overshoot and starts to blink. This is the tension the whole video resolves.', camfx: 'Push ends at 104%.', next: '<b>MATCH CUT:</b> the "47" becomes the "47 Merged" badge in GitHub (2A).',
+    html: () => `<div class="f">
+      <div class="abs" style="left:0;right:0;top:230px;text-align:center;font-size:380px;font-weight:800;letter-spacing:-12px;line-height:1;text-shadow:0 0 80px #7C5CFF">47</div>
+      <div class="abs" style="left:0;right:0;top:640px;text-align:center;font-size:66px;font-weight:600;color:var(--muted)">PRs merged this week.</div>
+      <div class="abs" style="left:610px;top:820px;width:700px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:34px;padding:16px;border-radius:999px;border:3px solid var(--bad);color:var(--bad);box-shadow:0 0 40px #FF5C5C55">● Release notes due · 5:00 PM</div>
+      ${note(1330, 830, 'blink 8f')}</div>` },
+  { s: 1, id: '1D', f: 238, act: '<b>Transition frame.</b> The big "47" shrinks and flies along an arc into the "47 Merged" badge while the GitHub window fades up behind it.', camfx: 'The push hands off into Scene 2\'s wide shot.', next: 'Lands on 2A.',
+    html: () => `<div class="f">
+      <div class="abs" style="inset:0;opacity:.45">${github(90, 150, 900, 800, '', true)}</div>
+      <div class="abs" style="left:700px;top:330px;font-size:200px;font-weight:800;letter-spacing:-6px;line-height:1;text-shadow:0 0 60px #7C5CFF">47</div>
+      ${arc([820, 330], [330, 250], -120, 'MATCH CUT · 14f')}</div>` },
+
+  { s: 2, id: '2A', f: 300, act: 'Three windows pile in (4f stagger): GitHub with the <b>47 Merged</b> badge, a blank Google Doc, Slack #releases: <i>"notes?? 👀"</i>. Clock pill shows <b>4:12 PM</b>.', camfx: 'Wide on all three windows.', next: 'Cursor starts the copy-paste loop.',
+    html: () => `<div class="f">
+      ${github(90, 150, 900, 800, '', true)}${doc(700, 250, 0)}${slack(1300, 140, [['Maya (PM)', 'notes?? 👀', '4:12 PM']])}
+      ${clock('4:12 PM')}
+      <div class="copy">Every Friday, someone plays copy-paste.</div></div>` },
+  { s: 2, id: '2B', f: 450, act: 'Cursor <b>arcs</b> from a PR row to the Doc and pastes. Five messy lines pile up (mixed casing, "??"). Each click gets a 3f press.', camfx: 'Drifts toward the Doc (dashed frame).', next: 'Cursor loses its place.',
+    html: () => `<div class="f">
+      ${github(90, 150, 900, 800)}${slack(1300, 140, [['Maya (PM)', 'notes?? 👀', '4:12 PM']])}${doc(700, 250, 5, 'z-index:2')}
+      ${arc([520, 380], [1020, 650], -240, 'arc, ~24f')}${cursor(1020, 650, { press: true })}
+      ${clock('4:31 PM')}${cam(380, 160, 1340, 754, 'CAM DRIFT → DOC')}</div>` },
+  { s: 2, id: '2C', f: 580, act: 'Cursor <b>hesitates</b> between tabs (~20f, ghost trail = "where was I?"). Slack pings again: <i>"@you ETA?"</i>. Clock jumps to <b>4:48</b> and turns red.', camfx: '1.5% shake on the Slack ping (6f).', next: 'Everything drains to gray.',
+    html: () => `<div class="f">
+      ${github(90, 150, 900, 800)}${doc(700, 250, 5)}${slack(1300, 140, [['Maya (PM)', 'notes?? 👀', '4:12 PM'], ['Dev (CTO)', '@you ETA? 😬', '4:48 PM', true]], 'z-index:2;box-shadow:0 0 0 4px #FF5C5C, 0 30px 80px #000')}
+      ${cursor(1130, 470, { ghost: 0.25 })}${cursor(1190, 430, { ghost: 0.5 })}${cursor(1240, 450)}
+      ${note(1150, 540, '? hold 20f')}
+      ${note(1620, 720, '≈ shake 1.5%')}
+      ${clock('4:48 PM', 'var(--bad)', 'border-color:var(--bad)')}</div>` },
+  { s: 2, id: '2D', f: 700, act: 'The whole frame <b>desaturates and blurs</b>. A violet light band sweeps left → right.', camfx: 'Slight pull back as color drains.', next: '<b>WIPE:</b> the violet band reveals the Patchnote dashboard (3A).',
+    html: () => `<div class="f">
+      <div class="abs" style="inset:0;filter:grayscale(1) blur(3px) brightness(.6)">
+        ${github(90, 150, 900, 800)}${doc(700, 250, 5)}${slack(1300, 140, [['Maya (PM)', 'notes?? 👀', '4:12 PM'], ['Dev (CTO)', '@you ETA? 😬', '4:48 PM', true]])}</div>
+      <div class="abs" style="left:520px;top:-100px;width:520px;height:1300px;transform:skewX(-14deg);background:linear-gradient(90deg,transparent,#7C5CFFcc,#B9A8FF,#7C5CFFcc,transparent);filter:blur(10px)"></div>
+      ${note(1150, 520, 'sweep L→R · 30f')}</div>` },
+
+  { s: 3, id: '3A', f: 790, act: 'Patchnote dashboard. Header reads <b>Week 43 · 47 PRs merged</b> (same 47). A stack of PR chips waits. The cursor arcs to <b>✦ Generate notes</b>.', camfx: 'Mid shot centered on the button.', next: 'Click → chips explode into columns.',
+    html: () => `<div class="f">${sidebar()}${dashHead()}
+      ${[0, 1, 2, 3, 4].map(i => `<div class="chip" style="left:${400 + i * 10}px;top:${560 - i * 26}px;font-size:28px;padding:16px 22px;transform:rotate(${(i - 2) * 3}deg)">${PRS[i][0]} ${PRS[i][1]}</div>`).join('')}
+      <div class="btn" style="left:1080px;top:560px;width:520px;height:120px;font-size:42px">✦ Generate notes</div>
+      ${arc([1700, 960], [1360, 640], -60, 'arc in')}${cursor(1360, 640)}
+      ${clock('4:49 PM')}<div class="copy">Patchnote reads every PR.</div></div>` },
+  { s: 3, id: '3B', f: 960, act: 'Click (3f press). <b>47 chips fly</b> into Features 12 / Fixes 23 / Infra 12, staggered 2f, landing with overshoot. Each column is one parent group.', camfx: '<b>Push in</b> on the columns (ease in-out, 45f).', next: 'Columns fold into one card.',
+    html: () => `<div class="f">${sidebar()}${dashHead('opacity:.5')}
+      ${columns(0.75)}
+      <div class="chip" style="left:900px;top:220px;transform:rotate(-8deg);box-shadow:-60px 0 30px -20px #7C5CFF88">#1266 Bulk-archive</div>
+      <div class="chip" style="left:1420px;top:200px;transform:rotate(6deg);box-shadow:-60px 0 30px -20px #7C5CFF88">#1250 Sentry v8</div>
+      ${arc([1100, 180], [620, 560], -40)}${arc([1250, 180], [1560, 560], -40)}
+      ${cam(340, 260, 1460, 822, 'CAM PUSH IN')}</div>` },
+  { s: 3, id: '3C', f: 1200, act: 'Columns collapse into a <b>release-note card that types itself</b>, one line every 8f. Feature names get a violet highlight. These are the same PRs from 2A, now readable.', camfx: 'Pull back to frame the card; starts before the push settles.', next: 'Card finishes → badge pops.',
+    html: () => `<div class="f">${releaseCard(4)}
+      <div class="copy">…and writes the notes your users actually read.</div>
+      ${note(1640, 560, '1 line / 8f')}</div>` },
+  { s: 3, id: '3D', f: 1410, act: 'Card complete. <b>✓ Ready to publish</b> badge pops in (overshoot ~115%). The cursor clicks <b>Publish</b>.', camfx: 'Slow drift.', next: 'Card splits into three destinations.',
+    html: () => `<div class="f">${releaseCard(6, 'top:120px')}
+      <div class="abs" style="left:1360px;top:90px;background:var(--ok);color:#062;font-weight:800;font-size:32px;padding:14px 26px;border-radius:999px;transform:rotate(4deg);box-shadow:0 0 50px #3DDC9788">✓ Ready to publish</div>
+      <div class="btn" style="left:1290px;top:900px;width:300px;height:96px;font-size:36px">Publish</div>
+      ${cursor(1450, 945, { press: true })}${clock('4:50 PM')}</div>` },
+
+  { s: 4, id: '4A', f: 1530, act: 'Three destination cards fan out (4f stagger): <b>Changelog</b> page, Slack #releases post (🎉 reactions count 0 → 12), and an <b>email</b>. The clock is <b>4:51 PM</b> and green. It\'s the same clock that was red in 2C.', camfx: 'Slow pull out.', next: 'Cards exit fast (18f) → logo.',
+    html: () => `<div class="f">
+      <div class="win" style="left:120px;top:250px;width:560px;height:640px;transform:rotate(-4deg)"><div class="bar">acme.app/changelog</div>
+        <div style="padding:30px"><div style="font-size:38px;font-weight:800">Week 43 — What's new</div><div class="rn" style="font-size:24px;margin-top:14px">✨ <em>Sign in with Okta</em></div><div class="rn" style="font-size:24px">✨ <em>Dark mode</em> in Settings</div><div class="rn" style="font-size:24px">🐛 Large exports fixed</div></div></div>
+      ${slack(690, 200, [['Patchnote', 'Week 43 notes are live 🚀', '4:51 PM'], ['Maya (PM)', 'legend. 🙌', '4:51 PM']], 'z-index:2;height:600px')}
+      <div class="abs" style="left:820px;top:690px;font-size:34px;display:flex;gap:14px;z-index:3"><span class="badge" style="background:#7C5CFF44;font-size:30px">🎉 12</span><span class="badge" style="background:#ffffff22;font-size:30px">👍 8</span></div>
+      <div class="win" style="left:1260px;top:260px;width:560px;height:620px;transform:rotate(4deg)"><div class="bar">Inbox · What's new at Acme</div>
+        <div style="padding:30px;background:#F7F7F5;color:#111;position:absolute;inset:54px 0 0 0"><div style="font-size:34px;font-weight:800">What's new at Acme — Week 43</div><div style="font-size:24px;margin-top:16px;line-height:1.6">Sign in with Okta, dark mode for Settings, and faster exports.</div><div style="margin-top:22px;background:#7C5CFF;color:#fff;display:inline-block;padding:12px 22px;border-radius:10px;font-size:22px;font-weight:700">Read the changelog</div></div></div>
+      ${clock('4:51 PM ✓', 'var(--ok)', 'border-color:var(--ok)')}
+      <div class="copy">Published everywhere. Before 5.</div></div>` },
+  { s: 4, id: '4B', f: 1760, act: 'Logo scales 0.9 → 1.0 with overshoot. Tagline <b>"Ship it. We\'ll write it up."</b> and URL hold for ≥1.5s (f1700–1800).', camfx: '1% drift on the logo, never fully still.', next: 'END · 30.0s',
+    html: () => `<div class="f" style="background:radial-gradient(circle at 50% 45%,#1E1640,#0B0D12 60%)">
+      <div class="abs" style="left:0;right:0;top:330px;display:flex;justify-content:center"><div class="logo" style="font-size:130px;gap:36px"><div class="mark" style="width:140px;height:140px;border-radius:36px"></div>Patchnote</div></div>
+      <div class="abs" style="left:0;right:0;top:560px;text-align:center;font-size:62px;font-weight:600;color:var(--muted)">Ship it. We'll write it up.</div>
+      <div class="abs" style="left:0;right:0;top:700px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:38px;color:#B9A8FF">patchnote.dev</div></div>` },
+];
+
+const SC = {
+  1: ['HOOK', '0:00–0:04 · f0–240', 'Grab attention with one number and plant the deadline.'],
+  2: ['PROBLEM', '0:04–0:12 · f240–720', 'Show the Friday copy-paste grind while the clock runs out.'],
+  3: ['FIX', '0:12–0:24 · f720–1440', 'Patchnote turns the same 47 PRs into finished notes in one click.'],
+  4: ['PAYOFF', '0:24–0:30 · f1440–1800', 'Published everywhere before the deadline, then logo and tagline.'],
+};
+const tc = f => `0:${String(Math.floor(f / 60)).padStart(2, '0')}.${String(Math.round((f % 60) / 60 * 100)).padStart(2, '0')}`;
+
+const cell = (p, w, compact) => `<div class="cell">
+  <div class="panel" style="width:${w}px;height:${w * 9 / 16}px"><div class="frame" style="transform:scale(${(w - 6) / 1920})">${p.html()}</div></div>
+  <div class="cap"><span class="id">${p.id}</span><span class="tc">${tc(p.f)} · f${p.f}</span><br>
+  ${compact ? p.act.replace(/<br>/g, ' ') : `${p.act}<br><b>Camera:</b> ${p.camfx}<br><span class="next">→ ${p.next}</span>`}</div></div>`;
+
+const legend = `<div class="legend"><span><i></i>motion path / note</span><span><i class="box"></i>camera end frame</span>
+  <span><i class="cont"></i><b>Continuity threads:</b> the "47" (1A→2A→3A), the clock (4:12 → 4:48 red → 4:51 green), the same PR titles (2A→3B→3C→4A), violet = Patchnote</span></div>`;
+
+let html = '';
+if (MODE === 'all') {
+  html = `<div class="sheet wide"><div class="head"><h1>Patchnote · <span>30s launch</span> · storyboard overview</h1>
+    <div class="meta">1920×1080 · 60fps · 1800f<br>v1 · 14 keyframes</div></div><div class="grid ov">`;
+  for (const s of [1, 2, 3, 4]) {
+    html += `<div class="rowlabel">${s} · ${SC[s][0]} <span style="font-weight:500;font-size:16px">${SC[s][1]}: ${SC[s][2]}</span></div>`;
+    html += P.filter(p => p.s === s).map(p => cell(p, 400, true)).join('');
+  }
+  html += `</div>${legend}</div>`;
+} else {
+  const s = +MODE;
+  html = `<div class="sheet"><div class="head"><h1>Scene ${s} · <span>${SC[s][0]}</span></h1>
+    <div class="meta">${SC[s][1]}<br>Patchnote 30s launch · v1</div></div>
+    <div class="purpose"><b>Job of this scene:</b> ${SC[s][2]}</div>
+    <div class="grid">${P.filter(p => p.s === s).map(p => cell(p, 780, false)).join('')}</div>${legend}</div>`;
+}
+document.getElementById('root').innerHTML = html;
+const setH = () => document.body.setAttribute('data-h', document.querySelector('.sheet').offsetHeight);
+setH(); document.fonts.ready.then(setH);
+</script>
+</body>
+</html>
