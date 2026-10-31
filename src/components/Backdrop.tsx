@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, useCurrentFrame } from "remotion";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 
 /**
  * Ambient depth behind a scene: two or three large, soft color fields drifting slowly
@@ -13,6 +13,11 @@ export const Backdrop: React.FC<{
   frameOffset?: number;
 }> = ({ tones, drift = 90, frameOffset = 0 }) => {
   const frame = useCurrentFrame() + frameOffset;
+  // Tones are authored on the 1920×1080 canvas; other formats map them proportionally (identity at 16:9).
+  const { width, height } = useVideoConfig();
+  const sx = width / 1920;
+  const sy = height / 1080;
+  const sr = Math.max(sx, sy);
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
       {tones.map((t, i) => {
@@ -23,10 +28,10 @@ export const Backdrop: React.FC<{
             key={i}
             style={{
               position: "absolute",
-              left: t.x - t.r + dx,
-              top: t.y - t.r + dy,
-              width: t.r * 2,
-              height: t.r * 2,
+              left: t.x * sx - t.r * sr + dx,
+              top: t.y * sy - t.r * sr + dy,
+              width: t.r * sr * 2,
+              height: t.r * sr * 2,
               borderRadius: "50%",
               background: `radial-gradient(circle, ${t.color} 0%, transparent 68%)`,
               opacity: t.opacity,

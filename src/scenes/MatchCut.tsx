@@ -1,27 +1,32 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { COLORS, EASE, HANDOFF, INTER, SCENES, STATS } from "../theme";
-import { BADGE_WORLD, problemCam } from "./Problem";
+import { badgeWorld, problemCam } from "./Problem";
+import { Format, perFormat, useFormat } from "../format";
 
 // 1D match cut: the Hook's big "47" shrinks and arcs into the "47 Merged" badge (14f), then hands off.
 // Runs in its own Sequence from (hook end − HANDOFF.matchCut). Frame 0 is pixel-identical to the Hook counter.
 
-/** Hook counter center on screen at the handoff frame (measured from render). */
-const FROM = { x: 959, y: 500 };
+/** Hook counter center on screen at the handoff frame (measured from render at 16:9: (959, 500)). The Hook is
+ *  flex-centered, so in every format the counter sits at the same offset from the canvas center. */
+const fromFor = (fmt: Format) => ({ x: fmt.W / 2 - 1, y: fmt.H / 2 - 40 });
 // Badge digits on screen at Scene 2 local 0: world position (measured) through Scene 2's opening camera.
-const cam0 = problemCam(0);
-export const BADGE_TARGET = {
-  x: 960 + (BADGE_WORLD.x - cam0.cx) * cam0.s,
-  y: 540 + (BADGE_WORLD.y - cam0.cy) * cam0.s,
-};
+const targetFor = perFormat((fmt: Format) => {
+  const cam0 = problemCam(0, fmt);
+  const b = badgeWorld(fmt);
+  return { x: fmt.W / 2 + (b.x - cam0.cx) * cam0.s, y: fmt.H / 2 + (b.y - cam0.cy) * cam0.s, font: b.fontSize * cam0.s };
+});
 const HOOK_FONT = 360;
-const BADGE_FONT = BADGE_WORLD.fontSize * cam0.s;
 
 const SHUTTER = 0.5; // 180° shutter, as a fraction of a frame
 const BLUR_SAMPLES = [0.3, 0.26, 0.22, 0.18, 0.14, 0.1, 0.07, 0.04];
 
 export const MatchCut: React.FC = () => {
   const t = useCurrentFrame();
+  const fmt = useFormat();
+  const FROM = fromFor(fmt);
+  const BADGE_TARGET = targetFor(fmt);
+  const BADGE_FONT = BADGE_TARGET.font;
   const dur = HANDOFF.matchCut;
   // Hook push scale at the handoff frame, so frame 0 matches the Hook exactly.
   const handoff = SCENES.hook.duration - dur;

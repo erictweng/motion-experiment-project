@@ -1,6 +1,7 @@
 import React from "react";
 import { interpolate, interpolateColors, useCurrentFrame } from "remotion";
 import { COLORS, EASE, MONO } from "../theme";
+import { useFormat } from "../format";
 
 export type ClockBeat = { f: number; time: string; tone: "neutral" | "bad" | "ok"; check?: boolean };
 
@@ -11,9 +12,11 @@ const toneBorder = { neutral: COLORS.border, bad: COLORS.danger, ok: COLORS.succ
 export const ClockPill: React.FC<{ beats: ClockBeat[]; opacity?: number; y?: number }> = ({
   beats,
   opacity = 1,
-  y = 64,
+  y: yProp,
 }) => {
   const frame = useCurrentFrame();
+  const fmt = useFormat();
+  const y = yProp ?? fmt.clockY;
   let idx = 0;
   for (let i = 0; i < beats.length; i++) if (frame >= beats[i].f) idx = i;
   const cur = beats[idx];

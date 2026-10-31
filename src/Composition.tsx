@@ -9,6 +9,7 @@ import { MatchCut } from "./scenes/MatchCut";
 import { Soundtrack } from "./Soundtrack";
 import { Grain, Vignette } from "./components/Backdrop";
 import { GRAIN } from "./theme";
+import { FORMATS } from "./format";
 
 // Layer order matters: later children draw on top.
 //  · Problem starts PROBLEM_LEAD frames early (transparent) so its code-host window fades up behind the Hook (1D).
@@ -48,15 +49,27 @@ export const LaunchVideo: React.FC = () => {
   );
 };
 
+// One component, three cuts. Each scene lays itself out from the composition's width/height (src/format.ts).
+const CUTS = [
+  { id: "PatchnoteLaunch", f: FORMATS.wide }, // 16:9 master
+  { id: "PatchnoteVertical", f: FORMATS.vertical }, // 9:16 (Reels, TikTok, Shorts)
+  { id: "PatchnoteSquare", f: FORMATS.square }, // 1:1 (feed posts)
+];
+
 export const MyComposition = () => {
   return (
-    <Composition
-      id="PatchnoteLaunch"
-      component={LaunchVideo}
-      durationInFrames={VIDEO.durationInFrames}
-      fps={VIDEO.fps}
-      width={VIDEO.width}
-      height={VIDEO.height}
-    />
+    <>
+      {CUTS.map((c) => (
+        <Composition
+          key={c.id}
+          id={c.id}
+          component={LaunchVideo}
+          durationInFrames={VIDEO.durationInFrames}
+          fps={VIDEO.fps}
+          width={c.f.W}
+          height={c.f.H}
+        />
+      ))}
+    </>
   );
 };

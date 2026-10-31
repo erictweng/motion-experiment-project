@@ -43,9 +43,9 @@ export const cameraAt = (frame: number, keys: { f: number; cam: Cam }[]): Cam =>
   return cam;
 };
 
-/** CSS transform for a 1920×1080 world div (transform-origin 0 0), framed from the canvas center. */
-export const camTransform = ({ cx, cy, s }: Cam, dx = 0, dy = 0) =>
-  `translate(${960 - cx * s + dx}px, ${540 - cy * s + dy}px) scale(${s})`;
+/** CSS transform for a world div (transform-origin 0 0), framed from the canvas center (W×H canvas). */
+export const camTransform = ({ cx, cy, s }: Cam, dx = 0, dy = 0, W = 1920, H = 1080) =>
+  `translate(${W / 2 - cx * s + dx}px, ${H / 2 - cy * s + dy}px) scale(${s})`;
 
 /** Deterministic decaying shake (no randomness). Amplitude in px. */
 export const shakeAt = (frame: number, start: number, dur: number, amp: number) => {

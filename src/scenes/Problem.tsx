@@ -7,6 +7,7 @@ import { Cursor, CursorKey } from "../components/Cursor";
 import { ClockPill } from "../components/ClockPill";
 import { Caption } from "../components/Caption";
 import { Backdrop } from "../components/Backdrop";
+import { Format, perFormat, useFormat } from "../format";
 
 // Scene 2 — PROBLEM (frames 240–720 global, 0–480 local). Board 2A f300 · 2B f450 · 2C f580 · 2D f700.
 // The Sequence starts LEAD frames early (1D match cut): during local −14…0 only the code-host window
@@ -18,15 +19,20 @@ const END = 480;
 /** Element id of the badge digits the MatchCut flies into. */
 export const BADGE_COUNT_ID = "gh-merged-count";
 
-// Layout (world px, 1920×1080, composed around the canvas center).
-const GH = { x: 110, y: 160, w: 880, h: 740 };
-const DOC = { x: 700, y: 260, w: 760, h: 640 };
-const CHAT = { x: 1300, y: 150, w: 520, h: 560 };
+// Layout (world px, laid out on the canvas of each format; wide = the original 1920×1080 composition).
+type Box = { x: number; y: number; w: number; h: number };
+const WINDOWS: Record<Format["id"], { GH: Box; DOC: Box; CHAT: Box }> = {
+  wide: { GH: { x: 110, y: 160, w: 880, h: 740 }, DOC: { x: 700, y: 260, w: 760, h: 640 }, CHAT: { x: 1300, y: 150, w: 520, h: 560 } },
+  // 9:16: the three windows stack top to bottom, overlapping like a pile; key reads sit inside the phone safe zone.
+  // Captions sit above the pile (under the clock) in 9:16, so the pile starts lower; chat only needs two messages.
+  vertical: { GH: { x: 100, y: 450, w: 880, h: 740 }, DOC: { x: 180, y: 990, w: 800, h: 640 }, CHAT: { x: 500, y: 1440, w: 520, h: 400 } },
+  square: { GH: { x: 110, y: 160, w: 880, h: 740 }, DOC: { x: 700, y: 260, w: 760, h: 640 }, CHAT: { x: 1300, y: 150, w: 520, h: 560 } }, // TODO stage 3
+};
 const ROW_H = 66;
-const rowY = (k: number) => GH.y + 130 + ROW_H * k + ROW_H / 2; // row center
 const LINE_H = 48;
-const LINES_TOP = DOC.y + 48 + 44 + 56 + 28;
-const lineY = (k: number) => LINES_TOP + LINE_H * k + LINE_H / 2;
+const rowYIn = (GH: Box) => (k: number) => GH.y + 130 + ROW_H * k + ROW_H / 2; // row center
+const linesTop = (DOC: Box) => DOC.y + 48 + 44 + 56 + 28;
+const lineYIn = (DOC: Box) => (k: number) => linesTop(DOC) + LINE_H * k + LINE_H / 2;
 
 // Beats (local frames).
 const B = {
@@ -44,50 +50,79 @@ const B = {
   sweep: [END - 32, END - 2] as const, // 2D wipe (30f) reveals Scene 3, which sits under it for HANDOFF.wipeLead frames
 };
 
-// Cursor path: copy-paste loop, then the "where was I?" hesitation, then the ping pulls it to chat.
-const keys: CursorKey[] = [{ f: B.cursorIn, x: 600, y: 800 }];
+// Timing (format-independent: every cut keeps the same beats, so the soundtrack is shared).
 const clicks: number[] = [];
 const pasteAt: number[] = [];
-C.pasted.forEach((line, i) => {
+C.pasted.forEach((_, i) => {
   const c = B.loopStart + B.loopCycle * i;
-  const row = { x: 470, y: rowY(line.row) - 8 };
-  // Land just past the end of the pasted text so the cursor never covers it (~13px/char at 27px Inter).
-  const doc = { x: DOC.x + 48 + line.indent * 28 + line.text.length * 15.5 + 36, y: lineY(i) - 6 };
-  keys.push({ f: c, ...row, arc: -0.3 }, { f: c + 3, ...row });
-  keys.push({ f: c + 18, ...doc, arc: -0.3 }, { f: c + 21, ...doc });
   clicks.push(c, c + 18);
   pasteAt.push(c + 20);
 });
-const lastPaste = keys[keys.length - 1].f;
-keys.push(
-  { f: B.hesitate1[0], x: 1150, y: 505, arc: -0.2 },
-  { f: B.hesitate1[1], x: 1150, y: 505 },
-  { f: B.hesitate2[0], x: 1255, y: 495, arc: 0.15 },
-  { f: B.hesitate2[1], x: 1255, y: 495 },
-  { f: 380, x: CHAT.x + 210, y: CHAT.y + 250, arc: -0.25 },
-  { f: 386, x: CHAT.x + 210, y: CHAT.y + 250 },
-  { f: 430, x: 470, y: rowY(5) - 8, arc: 0.25 },
-  { f: 480, x: 520, y: rowY(6) - 8, arc: 0.2 },
-);
+const lastPaste = B.loopStart + B.loopCycle * (C.pasted.length - 1) + 21;
 clicks.push(380, 430);
 
-// Camera. Phone-readable: push in on each key read, wide in between.
-const WIDE = { cx: 960, cy: 540, s: 1 };
-const camKeys = [
-  { f: 0, cam: { cx: 560, cy: 420, s: 1.85 } }, // open on the "47 Merged" badge (the 47 lands here, ~41px)
-  { f: 56, cam: WIDE }, // pull out to the wide 2A shot
-  { f: 76, cam: WIDE },
-  { f: lastPaste, cam: { cx: 1060, cy: 455, s: 1.38 } }, // push onto the messy pasted lines (2B); window tops stay under the clock
-  { f: 262, cam: WIDE }, // wide for the hesitation (2C)
-  { f: B.ping, cam: WIDE },
-  { f: B.ping + 20, cam: { cx: 1560, cy: 330, s: 1.45 } }, // punch in on "@you ETA?"
-  { f: 410, cam: { cx: 1550, cy: 335, s: 1.47 } },
-  { f: B.desat[1], cam: WIDE }, // pull back as the color drains (2D)
-];
+// Per-format layout: windows, cursor path (relative to the windows) and camera keys.
+const layout = perFormat((fmt: Format) => {
+  const { GH, DOC, CHAT } = WINDOWS[fmt.id];
+  const rowY = rowYIn(GH);
+  const lineY = lineYIn(DOC);
+  // Cursor path: copy-paste loop, then the "where was I?" hesitation, then the ping pulls it to chat.
+  const hes1 = { x: DOC.x + 450, y: DOC.y + 245 };
+  const hes2 = { x: DOC.x + 555, y: DOC.y + 235 };
+  const keys: CursorKey[] = [{ f: B.cursorIn, x: GH.x + 490, y: GH.y + 640 }];
+  C.pasted.forEach((line, i) => {
+    const c = B.loopStart + B.loopCycle * i;
+    const row = { x: GH.x + 360, y: rowY(line.row) - 8 };
+    // Land just past the end of the pasted text so the cursor never covers it (~13px/char at 27px Inter).
+    const doc = { x: DOC.x + 48 + line.indent * 28 + line.text.length * 15.5 + 36, y: lineY(i) - 6 };
+    keys.push({ f: c, ...row, arc: -0.3 }, { f: c + 3, ...row });
+    keys.push({ f: c + 18, ...doc, arc: -0.3 }, { f: c + 21, ...doc });
+  });
+  keys.push(
+    { f: B.hesitate1[0], ...hes1, arc: -0.2 },
+    { f: B.hesitate1[1], ...hes1 },
+    { f: B.hesitate2[0], ...hes2, arc: 0.15 },
+    { f: B.hesitate2[1], ...hes2 },
+    { f: 380, x: CHAT.x + 210, y: CHAT.y + 250, arc: -0.25 },
+    { f: 386, x: CHAT.x + 210, y: CHAT.y + 250 },
+    { f: 430, x: GH.x + 360, y: rowY(5) - 8, arc: 0.25 },
+    { f: 480, x: GH.x + 410, y: rowY(6) - 8, arc: 0.2 },
+  );
+
+  // Camera. Phone-readable: push in on each key read, wide in between.
+  // Vertical wide shot sits the pile below the caption band (pile top lands at ~y510), the others on the canvas.
+  const WIDE = fmt.id === "vertical" ? { cx: fmt.W / 2, cy: 900, s: 1 } : { cx: fmt.W / 2, cy: fmt.H / 2, s: 1 };
+  const shots =
+    fmt.id === "vertical"
+      ? {
+          badge: { cx: GH.x + 320, cy: GH.y + 260, s: 1.85 },
+          lines: { cx: DOC.x + 390, cy: DOC.y + 280, s: 1.3 },
+          ping: { cx: CHAT.x + 250, cy: CHAT.y + 190, s: 1.45 },
+          pingHold: { cx: CHAT.x + 245, cy: CHAT.y + 195, s: 1.47 },
+        }
+      : {
+          badge: { cx: 560, cy: 420, s: 1.85 }, // open on the "47 Merged" badge (the 47 lands here, ~41px)
+          lines: { cx: 1060, cy: 455, s: 1.38 }, // push onto the messy pasted lines (2B); window tops stay under the clock
+          ping: { cx: 1560, cy: 330, s: 1.45 }, // punch in on "@you ETA?"
+          pingHold: { cx: 1550, cy: 335, s: 1.47 },
+        };
+  const camKeys = [
+    { f: 0, cam: shots.badge },
+    { f: 56, cam: WIDE }, // pull out to the wide 2A shot
+    { f: 76, cam: WIDE },
+    { f: lastPaste, cam: shots.lines },
+    { f: 262, cam: WIDE }, // wide for the hesitation (2C)
+    { f: B.ping, cam: WIDE },
+    { f: B.ping + 20, cam: shots.ping },
+    { f: 410, cam: shots.pingHold },
+    { f: B.desat[1], cam: WIDE }, // pull back as the color drains (2D)
+  ];
+  return { GH, DOC, CHAT, rowY, lineY, keys, hes1, camKeys };
+});
 
 /** Scene 2 camera at a scene-local frame (also used by the 1D match cut to find the badge on screen). */
-export const problemCam = (frame: number) => {
-  const base = cameraAt(frame, camKeys);
+export const problemCam = (frame: number, fmt: Format) => {
+  const base = cameraAt(frame, layout(fmt).camKeys);
   const drift = interpolate(frame, [0, END], [1, 1.02], { extrapolateLeft: "clamp", easing: EASE.inOut }); // never fully static
   const pullBack = interpolate(frame, [B.desat[0], END], [1, 0.96], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: EASE.inOut });
   return { ...base, s: base.s * drift * pullBack };
@@ -100,7 +135,10 @@ const focusBlur = (px: number) => (px > 0.05 ? `blur(${px}px)` : undefined);
  *  per digit at the 1.85x opening camera). Keeps the 1D match cut on target for any STATS.merged. */
 const BADGE_FONT_PX = 22;
 const DIGIT_ADVANCE = 0.64 * BADGE_FONT_PX;
-export const BADGE_WORLD = { x: 290 + ((String(STATS.merged).length - 2) * DIGIT_ADVANCE) / 2, y: 245.5, fontSize: BADGE_FONT_PX };
+export const badgeWorld = (fmt: Format) => {
+  const { GH } = layout(fmt);
+  return { x: GH.x + 180 + ((String(STATS.merged).length - 2) * DIGIT_ADVANCE) / 2, y: GH.y + 85.5, fontSize: BADGE_FONT_PX };
+};
 
 const MergeIcon: React.FC<{ size?: number }> = ({ size = 22 }) => (
   <svg width={size} height={size} viewBox="0 0 16 16">
@@ -119,7 +157,7 @@ const pileStyle = (frame: number, start: number): React.CSSProperties => {
   };
 };
 
-const CodeHost: React.FC<{ frame: number }> = ({ frame }) => (
+const CodeHost: React.FC<{ frame: number; GH: Box }> = ({ frame, GH }) => (
   <Window
     {...GH}
     title={C.repoUrl}
@@ -180,7 +218,7 @@ const CodeHost: React.FC<{ frame: number }> = ({ frame }) => (
   </Window>
 );
 
-const Doc: React.FC<{ frame: number }> = ({ frame }) => {
+const Doc: React.FC<{ frame: number; DOC: Box }> = ({ frame, DOC }) => {
   const shown = pasteAt.filter((f) => frame >= f).length;
   const caretOn = Math.floor(frame / 16) % 2 === 0;
   return (
@@ -188,7 +226,7 @@ const Doc: React.FC<{ frame: number }> = ({ frame }) => {
       <div style={{ padding: "44px 48px 0" }}>
         <div style={{ height: 56, fontSize: 44, fontWeight: 600, color: THIRD.docInk, letterSpacing: -0.5 }}>{C.docTitle}</div>
       </div>
-      <div style={{ position: "absolute", left: 48, top: LINES_TOP - DOC.y, right: 48 }}>
+      <div style={{ position: "absolute", left: 48, top: linesTop(DOC) - DOC.y, right: 48 }}>
         {C.pasted.map((line, i) => {
           if (frame < pasteAt[i]) return null;
           const t = frame - pasteAt[i];
@@ -251,7 +289,7 @@ const ChatMsg: React.FC<{ frame: number; at: number; name: string; time: string;
   );
 };
 
-const Chat: React.FC<{ frame: number }> = ({ frame }) => {
+const Chat: React.FC<{ frame: number; CHAT: Box }> = ({ frame, CHAT }) => {
   const alarm = interpolate(frame, [B.ping, B.ping + 8], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: EASE.out });
   const border = interpolateColors(alarm, [0, 1], [COLORS.border, COLORS.danger]);
   return (
@@ -271,8 +309,10 @@ const Chat: React.FC<{ frame: number }> = ({ frame }) => {
 
 export const Problem: React.FC = () => {
   const frame = useCurrentFrame() - LEAD; // scene-local frame; negative during the match-cut lead-in
-
-  const cam = problemCam(frame);
+  const fmt = useFormat();
+  const { W, H } = fmt;
+  const L = layout(fmt);
+  const cam = problemCam(frame, fmt);
   // Rack focus weights (0 = sharp). Doc is the subject of the 2B push; chat of the CTO punch-in.
   const docFocus = inOutAt(frame, 160, lastPaste) * (1 - inOutAt(frame, 228, 262));
   const chatFocus = inOutAt(frame, B.ping, B.ping + 20) * (1 - inOutAt(frame, 410, B.desat[1]));
@@ -287,7 +327,7 @@ export const Problem: React.FC = () => {
   const sweep = inOutAt(frame, B.sweep[0], B.sweep[1]);
   // End just past the right edge so the band is still crossing until the cut; its blurred, tilted tail
   // fades in the last 10% so nothing is left on screen at f720 (no 1-frame pop).
-  const bandX = interpolate(sweep, [0, 1], [-800, 2100]);
+  const bandX = interpolate(sweep, [0, 1], [-800, W + 180]);
   const bandO = interpolate(sweep, [0.9, 1], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   // Keep only what is right of the band's center line; Scene 3 (frozen at its f0) shows through on the left.
   // A soft mask (±FEATHER px) instead of a hard clip, so bright content never shows a cut edge inside the band.
@@ -296,9 +336,11 @@ export const Problem: React.FC = () => {
   const FEATHER = 80;
   const rad = (TILT_DEG * Math.PI) / 180;
   const gradAngle = 90 + TILT_DEG; // normal to the band, pointing right
-  const gradLen = 1920 * Math.abs(Math.sin(((gradAngle) * Math.PI) / 180)) + 1080 * Math.abs(Math.cos((gradAngle * Math.PI) / 180));
-  const bandCenterX = bandX + BAND_W / 2 + (550 - 540) * Math.tan(rad); // band center line at canvas mid-height
-  const t0 = ((bandCenterX - 960) * Math.cos(rad)) / gradLen + 0.5;
+  const BAND_TOP = (-300 * H) / 1080;
+  const BAND_H = (1700 * H) / 1080;
+  const gradLen = W * Math.abs(Math.sin(((gradAngle) * Math.PI) / 180)) + H * Math.abs(Math.cos((gradAngle * Math.PI) / 180));
+  const bandCenterX = bandX + BAND_W / 2 + (BAND_TOP + BAND_H / 2 - H / 2) * Math.tan(rad); // band center line at canvas mid-height
+  const t0 = ((bandCenterX - W / 2) * Math.cos(rad)) / gradLen + 0.5;
   const f = FEATHER / gradLen;
   const mask =
     frame >= B.sweep[0]
@@ -319,24 +361,24 @@ export const Problem: React.FC = () => {
         <AbsoluteFill style={{ opacity: inOutAt(frame, 0, 60) }}>
           <Backdrop tones={BACKDROP.neutral} />
         </AbsoluteFill>
-        <div style={{ position: "absolute", width: 1920, height: 1080, transformOrigin: "0 0", transform: camTransform(cam, shake.x, shake.y) }}>
+        <div style={{ position: "absolute", width: W, height: H, transformOrigin: "0 0", transform: camTransform(cam, shake.x, shake.y, W, H) }}>
           {/* Rack focus: whatever isn't the subject of a push-in softens (wide shots stay sharp). */}
           <div style={{ filter: focusBlur(blurGH) }}>
-            <CodeHost frame={frame} />
+            <CodeHost frame={frame} GH={L.GH} />
           </div>
           <div style={{ filter: focusBlur(blurDoc) }}>
-            <Doc frame={frame} />
+            <Doc frame={frame} DOC={L.DOC} />
           </div>
           <div style={{ filter: focusBlur(blurChat) }}>
-            <Chat frame={frame} />
+            <Chat frame={frame} CHAT={L.CHAT} />
           </div>
           <Sequence from={LEAD} layout="none" name="Cursor">
             <Cursor
-              keys={keys}
+              keys={L.keys}
               clicks={clicks}
               appear={B.cursorIn}
               wobble={[{ from: B.hesitate1[0], to: B.hesitate1[1] }, { from: B.hesitate2[0], to: B.ping }]}
-              ghosts={[{ x: 1150, y: 505, from: B.hesitate1[1], to: 360 }]}
+              ghosts={[{ ...L.hes1, from: B.hesitate1[1], to: 360 }]}
             />
           </Sequence>
         </div>
@@ -356,10 +398,10 @@ export const Problem: React.FC = () => {
         <div
           style={{
             position: "absolute",
-            top: -300,
+            top: BAND_TOP,
             left: bandX,
             width: BAND_W,
-            height: 1700,
+            height: BAND_H,
             transform: `rotate(${TILT_DEG}deg)`,
             background: `linear-gradient(90deg, transparent, ${COLORS.accent}cc 30%, ${BRAND.highlight} 50%, ${COLORS.accent}cc 70%, transparent)`,
             filter: "blur(28px)",
