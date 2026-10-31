@@ -20,7 +20,7 @@ export const COLORS = {
   border: "#262B36",
   text: "#F2F4F8",
   muted: "#8A93A6",
-  accent: "#7C5CFF", // the brand color. Every violet tint, glow and highlight derives from this one value (see BRAND)
+  accent: "#10A090", // the brand color (teal). Every tint, glow and highlight derives from this one value (see BRAND)
   success: "#3DDC97",
   danger: "#FF5C5C",
 };

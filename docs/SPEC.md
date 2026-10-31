@@ -32,7 +32,7 @@ Run one full "launch video" job end to end, the way a freelance client job would
 - **Violet** belongs to Patchnote only. The problem scenes are neutral or red, so the 2D sweep brings the brand in.
 
 ## 5. Visual system
-- **Colors:** bg `#0B0D12`, surface `#151923`, border `#262B36`, text `#F2F4F8`, muted `#8A93A6`, accent `#7C5CFF`, ok `#3DDC97`, bad `#FF5C5C`.
+- **Colors:** bg `#0B0D12`, surface `#151923`, border `#262B36`, text `#F2F4F8`, muted `#8A93A6`, accent `#10A090` (teal; was violet `#7C5CFF`), ok `#3DDC97`, bad `#FF5C5C`.
 - **Type:** Inter 600/800 for UI and headlines, JetBrains Mono for PR numbers and the clock. Loaded with `@remotion/google-fonts` before frame 0.
 - **Third-party UI** (GitHub, Docs, Slack) is a stylized look-alike, not a pixel copy and not using their logos.
 
