@@ -8,7 +8,8 @@ import { Caption } from "../components/Caption";
 import { LogoMark } from "../components/LogoMark";
 import { Backdrop } from "../components/Backdrop";
 import { Cursor, cursorPos, CursorGlyph } from "../components/Cursor";
-import { CARD, FIX_END_SCALE, FIX_LAST_FRAME, PUBLISH_CURSOR, PublishButton, ReleaseCard } from "./Fix";
+import { FIX_LAST_FRAME, fixHandoff, PublishButton, ReleaseCard } from "./Fix";
+import { Format, perFormat, useFormat } from "../format";
 
 // Scene 4 — PAYOFF (frames 1440–1800 global, 0–360 local). Board 4A f1530 · 4B f1760.
 // Frame 0 continues Scene 3's last frame exactly: same card, badge, Publish button, cursor and camera.
@@ -31,25 +32,60 @@ const B = {
 };
 
 const CARD_H = 545; // finished release card height (world px, measured from render at f1439)
-const CARD_CENTER = { x: CARD.x + CARD.w / 2, y: CARD.y + CARD_H / 2 };
 
 // Destination layout (world px). The release card itself becomes the changelog page.
-const DEST = {
-  changelog: { cx: 455, cy: 545, s: 0.6, rot: -3 },
-  chat: { x: 700, y: 330, w: 520, h: 430, rot: 0 },
-  email: { cx: 1470, cy: 548, w: 500, h: 420, rot: 3 },
+// 9:16 stacks changelog, chat and email top to bottom (still fanned, still overlapping).
+const DESTS: Record<Format["id"], {
+  changelog: { cx: number; cy: number; s: number; rot: number };
+  chat: { x: number; y: number; w: number; h: number; rot: number };
+  email: { cx: number; cy: number; w: number; h: number; rot: number };
+}> = {
+  wide: {
+    changelog: { cx: 455, cy: 545, s: 0.6, rot: -3 },
+    chat: { x: 700, y: 330, w: 520, h: 430, rot: 0 },
+    email: { cx: 1470, cy: 548, w: 500, h: 420, rot: 3 },
+  },
+  vertical: {
+    changelog: { cx: 390, cy: 560, s: 0.58, rot: -3 },
+    chat: { x: 440, y: 700, w: 540, h: 430, rot: 0 },
+    email: { cx: 420, cy: 1270, w: 520, h: 420, rot: 3 }, // bottom ~1480: clear of the app's caption/button area
+  },
+  square: {
+    changelog: { cx: 455, cy: 545, s: 0.6, rot: -3 },
+    chat: { x: 700, y: 330, w: 520, h: 430, rot: 0 },
+    email: { cx: 1470, cy: 548, w: 500, h: 420, rot: 3 },
+  }, // TODO stage 3
+};
+/** CTA button center on screen (measured from render at the end card). The CTA cursor path is relative to it. */
+const CTA_CENTER: Record<Format["id"], { x: number; y: number }> = {
+  wide: { x: 959, y: 663.5 }, // button x 645–1273, y 610–717
+  vertical: { x: 539, y: 1197 }, // button x 224–854, y 1143–1251
+  square: { x: 540, y: 663.5 }, // TODO stage 3
 };
 
-const camKeys = [
-  { f: 0, cam: { cx: 960, cy: 540, s: FIX_END_SCALE } },
-  { f: B.cardsOut, cam: { cx: 960, cy: 540, s: 0.98 } }, // slow pull out across 4A
-];
+const payoffLayout = perFormat((fmt: Format) => {
+  const H = fixHandoff(fmt);
+  const CARD_CENTER = { x: H.CARD.x + H.CARD.w / 2, y: H.CARD.y + CARD_H / 2 };
+  const camKeys = [
+    { f: 0, cam: H.endCam },
+    { f: B.cardsOut, cam: { ...H.endCam, s: 0.98 } }, // slow pull out across 4A
+  ];
+  const c = CTA_CENTER[fmt.id];
+  const ctaCursor = [
+    { f: B.ctaCursorIn, x: c.x + 561, y: c.y + 356.5 },
+    { f: B.ctaPress - 6, x: c.x + 191, y: c.y + 38.5, arc: 0.3 },
+    { f: B.ctaPress, x: c.x + 185, y: c.y + 34.5 },
+    { f: 360, x: c.x + 179, y: c.y + 30.5 },
+  ];
+  return { DEST: DESTS[fmt.id], CARD_CENTER, camKeys, ctaCursor, publishCursor: H.publishCursor };
+});
 
 const fanP = (frame: number, i: number) => enterAt(frame, B.fan + DUR.stagger * i);
 const outP = (frame: number, i: number) => exitAt(frame, B.cardsOut + 3 * i);
 const outStyle = (e: number): React.CSSProperties => ({ opacity: e, scale: `${0.9 + 0.1 * e}`, translate: `0px ${-(1 - e) * 30}px` });
 
 const ChangelogCard: React.FC<{ frame: number }> = ({ frame }) => {
+  const { DEST, CARD_CENTER } = payoffLayout(useFormat());
   const p = fanP(frame, 0);
   const d = DEST.changelog;
   const e = outP(frame, 0);
@@ -101,6 +137,7 @@ const Reaction: React.FC<{ frame: number; emoji: string; to: number; from: numbe
 };
 
 const ChatCard: React.FC<{ frame: number }> = ({ frame }) => {
+  const { DEST, CARD_CENTER } = payoffLayout(useFormat());
   const p = fanP(frame, 1);
   const d = DEST.chat;
   const e = outP(frame, 1);
@@ -151,6 +188,7 @@ const ChatCard: React.FC<{ frame: number }> = ({ frame }) => {
 };
 
 const EmailCard: React.FC<{ frame: number }> = ({ frame }) => {
+  const { DEST, CARD_CENTER } = payoffLayout(useFormat());
   const p = fanP(frame, 2);
   const d = DEST.email;
   const e = outP(frame, 2);
@@ -202,9 +240,10 @@ const EmailCard: React.FC<{ frame: number }> = ({ frame }) => {
 
 /** Scene 3's Publish button + cursor, carried over at their last state, then cleared. */
 const Handoff: React.FC<{ frame: number }> = ({ frame }) => {
+  const { publishCursor } = payoffLayout(useFormat());
   const e = exitAt(frame, B.handoffOut);
   if (e <= 0) return null;
-  const pos = cursorPos(FIX_LAST_FRAME, PUBLISH_CURSOR);
+  const pos = cursorPos(FIX_LAST_FRAME, publishCursor);
   return (
     <div style={{ position: "absolute", inset: 0, opacity: e, zIndex: 4 }}>
       <PublishButton frame={FIX_LAST_FRAME + frame} />
@@ -217,6 +256,7 @@ const Handoff: React.FC<{ frame: number }> = ({ frame }) => {
 
 export const CTA_ID = "cta-button";
 const Logo: React.FC<{ frame: number }> = ({ frame }) => {
+  const vertical = useFormat().id === "vertical";
   const p = enterAt(frame, B.logoIn);
   const tag = enterAt(frame, B.taglineIn);
   const url = enterAt(frame, B.urlIn);
@@ -239,14 +279,15 @@ const Logo: React.FC<{ frame: number }> = ({ frame }) => {
         <div
           style={{
             display: "flex",
+            flexDirection: vertical ? "column" : "row", // 9:16: mark above the wordmark (side by side is ~980px)
             alignItems: "center",
             justifyContent: "center",
-            gap: 40,
+            gap: vertical ? 34 : 40,
             opacity: Math.min(1, p * 1.6),
             transform: `scale(${0.9 + 0.1 * p})`, // 0.9 → 1.0 with overshoot (EASE.enter)
           }}
         >
-          <LogoMark size={150} glow={30 * Math.min(1, p)} />
+          <LogoMark size={vertical ? 190 : 150} glow={30 * Math.min(1, p)} />
           <div style={{ fontSize: 160, fontWeight: 800, letterSpacing: -5, color: COLORS.text, lineHeight: 1 }}>{COPY.fix.brand}</div>
         </div>
         <div
@@ -304,7 +345,9 @@ const Logo: React.FC<{ frame: number }> = ({ frame }) => {
 
 export const Payoff: React.FC = () => {
   const frame = useCurrentFrame();
-  const cam = cameraAt(frame, camKeys);
+  const fmt = useFormat();
+  const L = payoffLayout(fmt);
+  const cam = cameraAt(frame, L.camKeys);
   const clockO = exitAt(frame, B.cardsOut);
   // Soft violet bloom behind the logo.
   const bloom = inOutAt(frame, B.logoIn, B.logoIn + 60);
@@ -318,7 +361,7 @@ export const Payoff: React.FC = () => {
           opacity: bloom,
         }}
       />
-      <div style={{ position: "absolute", width: 1920, height: 1080, transformOrigin: "0 0", transform: camTransform(cam) }}>
+      <div style={{ position: "absolute", width: fmt.W, height: fmt.H, transformOrigin: "0 0", transform: camTransform(cam, 0, 0, fmt.W, fmt.H) }}>
         <EmailCard frame={frame} />
         <ChatCard frame={frame} />
         <ChangelogCard frame={frame} />
@@ -333,14 +376,9 @@ export const Payoff: React.FC = () => {
       />
       <Caption text={C.caption} from={B.caption[0]} to={B.caption[1]} />
       <Logo frame={frame} />
-      {/* CTA button measured from render: x 645–1273, y 610–717. Cursor rests below the label. */}
+      {/* CTA cursor path is relative to the button's measured center (CTA_CENTER). */}
       <Cursor
-        keys={[
-          { f: B.ctaCursorIn, x: 1520, y: 1020 },
-          { f: B.ctaPress - 6, x: 1150, y: 702, arc: 0.3 },
-          { f: B.ctaPress, x: 1144, y: 698 },
-          { f: 360, x: 1138, y: 694 },
-        ]}
+        keys={L.ctaCursor}
         clicks={[B.ctaPress]}
         appear={B.ctaCursorIn}
       />

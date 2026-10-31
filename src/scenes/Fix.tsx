@@ -7,6 +7,7 @@ import { ClockPill } from "../components/ClockPill";
 import { Caption } from "../components/Caption";
 import { LogoMark } from "../components/LogoMark";
 import { Backdrop } from "../components/Backdrop";
+import { Format, perFormat, useFormat } from "../format";
 
 // Scene 3 — FIX (frames 720–1440 global, 0–720 local). Board 3A f790 · 3B f960 · 3C f1200 · 3D f1410.
 const C = COPY.fix;
@@ -40,13 +41,7 @@ const B = {
   ready: 680, // ✓ badge pop
 };
 
-// Layout (world px).
-const STACK = { x: 700, y: 600 };
-const BTN = { cx: 1290, cy: 620, w: 440, h: 104 };
-const COL = { x0: 340, gap: 470, top: 300, w: 450, h: 600 };
 const CHIP = { w: 205, h: 34, rowH: 42, gridTop: 92, colOffset: 213 };
-export const CARD = { x: 520, y: 200, w: 880 };
-export const PUBLISH = { x: 1150, y: 790, w: 250, h: 80 };
 const STACK_SCALE = 1.9;
 
 // Chips per column: at most one 2×12 grid. Past that, the last slot is a "+N more" chip.
@@ -84,39 +79,82 @@ const chips = ordered.map((c, o) => ({
 const landAt = (c: (typeof chips)[number]) => c.launch + B.flight;
 const lastLanding = Math.max(...chips.map(landAt));
 
-const colX = (i: number) => COL.x0 + COL.gap * i;
-const slotPos = (colIdx: number, slot: number) => ({
-  x: 16 + (slot % 2) * CHIP.colOffset,
-  y: CHIP.gridTop + Math.floor(slot / 2) * CHIP.rowH,
+// Per-format layout (world px). wide = the original 1920×1080 composition.
+// 9:16: no sidebar, two-line header, columns stacked top to bottom with 4 chips per row, full-width card.
+const fixLayout = perFormat((fmt: Format) => {
+  const vertical = fmt.id === "vertical";
+  const gridCols = vertical ? 4 : 2;
+  const colRows = (i: number) => Math.ceil(shownIn(i) / gridCols);
+  const COL = vertical
+    ? (() => {
+        const top = 700;
+        const gap = 24;
+        const h = CATEGORIES.map((_, i) => CHIP.gridTop + colRows(i) * CHIP.rowH + 14);
+        const y = h.map((_, i) => top + h.slice(0, i).reduce((a, b) => a + b + gap, 0));
+        return { x: () => 90, y: (i: number) => y[i], w: 900, h: (i: number) => h[i] };
+      })()
+    : { x: (i: number) => 340 + 470 * i, y: () => 300, w: 450, h: () => 600 };
+  const STACK = vertical ? { x: 540, y: 900 } : { x: 700, y: 600 };
+  const BTN = vertical ? { cx: 540, cy: 1180, w: 440, h: 104 } : { cx: 1290, cy: 620, w: 440, h: 104 };
+  const CARD = vertical ? { x: 80, y: 560, w: 920 } : { x: 520, y: 200, w: 880 };
+  const PUBLISH = { x: CARD.x + CARD.w - 250, y: CARD.y + 590, w: 250, h: 80 }; // under the card, right-aligned
+  const HEADER = vertical ? { x: 90, y: 400 } : { x: 440, y: 118 };
+  const WIDE = vertical ? { cx: 540, cy: 860, s: 1 } : { cx: 960, cy: 540, s: 1 }; // 9:16: dashboard content (y400–1290) centered
+  const camKeys = vertical
+    ? [
+        { f: 0, cam: WIDE },
+        { f: B.push[0], cam: WIDE },
+        { f: B.push[1], cam: { cx: 540, cy: 1120, s: 1.15 } }, // push in on the stacked columns
+        { f: B.pullBack[0], cam: { cx: 540, cy: 1115, s: 1.17 } },
+        { f: B.pullBack[1], cam: { cx: 540, cy: 860, s: 1.1 } }, // onto the card as it types (3C)
+        { f: 570, cam: { cx: 540, cy: 865, s: 1.09 } },
+        { f: 625, cam: { cx: 540, cy: 900, s: 1 } }, // full card + Publish (3D)
+      ]
+    : [
+        { f: 0, cam: WIDE },
+        { f: B.push[0], cam: WIDE }, // wide through 3A (sidebar stays in frame)
+        { f: B.push[1], cam: { cx: 1035, cy: 560, s: 1.2 } }, // push in on the columns; dimmed header stays in frame
+        { f: B.pullBack[0], cam: { cx: 1010, cy: 565, s: 1.22 } },
+        { f: B.pullBack[1], cam: { cx: 960, cy: 485, s: 1.28 } }, // reframe straight onto the card as it types (3C)
+        { f: 570, cam: { cx: 960, cy: 492, s: 1.26 } },
+        { f: 625, cam: WIDE }, // back to the full card + Publish (3D)
+      ];
+  const slotPos = (slot: number) => ({
+    x: 16 + (slot % gridCols) * CHIP.colOffset,
+    y: CHIP.gridTop + Math.floor(slot / gridCols) * CHIP.rowH,
+  });
+  /** Stack position by depth below the current top chip (top = 0 = launch point). */
+  const stackPos = (depth: number) => {
+    const d = Math.min(depth, STACK_VISIBLE);
+    return { x: STACK.x - d * 6, y: STACK.y + d * 9 };
+  };
+  const generateCursor: CursorKey[] = [
+    { f: B.cursorIn, x: BTN.cx + 430, y: BTN.cy + 420 },
+    { f: B.cursorOnButton, x: BTN.cx + 30, y: BTN.cy + 20, arc: 0.3 },
+    { f: B.click, x: BTN.cx + 10, y: BTN.cy + 8 },
+  ];
+  const start = vertical ? { x: PUBLISH.x + 200, y: PUBLISH.y + 450 } : { x: PUBLISH.x + 570, y: PUBLISH.y + 250 };
+  const publishCursor: CursorKey[] = [
+    { f: B.cursor2In, ...start },
+    { f: B.publishClick - 6, x: PUBLISH.x + 150, y: PUBLISH.y + 44, arc: 0.3 },
+    { f: 720, x: PUBLISH.x + 146, y: PUBLISH.y + 42 },
+  ];
+  return { vertical, COL, STACK, BTN, CARD, PUBLISH, HEADER, camKeys, slotPos, stackPos, generateCursor, publishCursor };
 });
+type FixLayout = ReturnType<typeof fixLayout>;
 const STACK_VISIBLE = 6;
-/** Stack position by depth below the current top chip (top = 0 = launch point). */
-const stackPos = (depth: number) => {
-  const d = Math.min(depth, STACK_VISIBLE);
-  return { x: STACK.x - d * 6, y: STACK.y + d * 9 };
-};
 
-export const PUBLISH_CURSOR: CursorKey[] = [
-  { f: B.cursor2In, x: 1720, y: 1040 },
-  { f: B.publishClick - 6, x: PUBLISH.x + 150, y: PUBLISH.y + 44, arc: 0.3 },
-  { f: 720, x: PUBLISH.x + 146, y: PUBLISH.y + 42 },
-];
+/** Layout pieces Scene 4 needs for the 3→4 handoff. */
+export const fixHandoff = (fmt: Format) => {
+  const L = fixLayout(fmt);
+  const last = L.camKeys[L.camKeys.length - 1].cam;
+  return { CARD: L.CARD, PUBLISH: L.PUBLISH, publishCursor: L.publishCursor, endCam: { ...last, s: last.s * FIX_END_SCALE } };
+};
 export const FIX_LAST_FRAME = 719;
-/** Camera drift at the end of Scene 3 (Scene 4 continues from it). */
 /** Slow whole-scene drift (eased, never linear). Scene 4 reads its end value. */
 export const fixDrift = (frame: number) =>
   interpolate(frame, [0, 720], [1, 1.03], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: EASE.inOut });
 export const FIX_END_SCALE = fixDrift(FIX_LAST_FRAME);
-
-const camKeys = [
-  { f: 0, cam: { cx: 960, cy: 540, s: 1 } },
-  { f: B.push[0], cam: { cx: 960, cy: 540, s: 1 } }, // wide through 3A (sidebar stays in frame)
-  { f: B.push[1], cam: { cx: 1035, cy: 560, s: 1.2 } }, // push in on the columns; dimmed header stays in frame
-  { f: B.pullBack[0], cam: { cx: 1010, cy: 565, s: 1.22 } },
-  { f: B.pullBack[1], cam: { cx: 960, cy: 485, s: 1.28 } }, // reframe straight onto the card as it types (3C)
-  { f: 570, cam: { cx: 960, cy: 492, s: 1.26 } },
-  { f: 625, cam: { cx: 960, cy: 540, s: 1 } }, // back to the full card + Publish (3D)
-];
 
 const Sparkle: React.FC<{ size: number; color: string }> = ({ size, color }) => (
   <svg width={size} height={size} viewBox="-10 -10 20 20">
@@ -164,8 +202,28 @@ const ChipBox: React.FC<{ num: number; label: string; more?: number; style?: Rea
 );
 
 const Dashboard: React.FC<{ frame: number }> = ({ frame }) => {
+  const L = fixLayout(useFormat());
   const fade = exitAt(frame, B.collapse - 10, 30);
   const dim = interpolate(frame, [B.push[0], B.push[1]], [1, 0.45], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: EASE.inOut });
+  if (L.vertical) {
+    // 9:16: no sidebar. Brand row, repo, then the header on two big lines.
+    return (
+      <div style={{ position: "absolute", inset: 0, opacity: fade }}>
+        <div style={{ position: "absolute", left: L.HEADER.x, top: L.HEADER.y, opacity: dim }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 22 }}>
+            <LogoMark size={40} />
+            <div style={{ fontSize: 26, fontWeight: 800, color: COLORS.text }}>{C.brand}</div>
+            <div style={{ fontSize: 22, fontWeight: 600, color: COLORS.muted, marginLeft: 10 }}>· {C.repo}</div>
+          </div>
+          <div style={{ fontSize: 96, fontWeight: 800, letterSpacing: -3, lineHeight: 1.02, color: COLORS.text }}>
+            Week {STATS.week}
+            <br />
+            <span style={{ color: COLORS.accent }}>{STATS.merged} PRs</span> merged
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{ position: "absolute", inset: 0, opacity: fade }}>
       <div
@@ -214,6 +272,7 @@ const Dashboard: React.FC<{ frame: number }> = ({ frame }) => {
 };
 
 const GenerateButton: React.FC<{ frame: number }> = ({ frame }) => {
+  const { BTN } = fixLayout(useFormat());
   const inP = enterAt(frame, B.buttonIn);
   const out = exitAt(frame, B.click + 12);
   const d = frame - B.click;
@@ -255,14 +314,16 @@ const GenerateButton: React.FC<{ frame: number }> = ({ frame }) => {
   );
 };
 
-const Columns: React.FC<{ frame: number }> = ({ frame }) => (
+const Columns: React.FC<{ frame: number }> = ({ frame }) => {
+  const { COL, CARD, slotPos } = fixLayout(useFormat());
+  return (
   <>
     {CATEGORIES.map((cat, i) => {
       const inP = enterAt(frame, B.columnsIn + i * DUR.stagger);
       // Fold toward the card center (parent null: its chips follow).
       const q = inOutAt(frame, B.collapse + i * 3, B.collapse + 36 + i * 3);
-      const cx = colX(i) + COL.w / 2;
-      const cy = COL.top + COL.h / 2;
+      const cx = COL.x(i) + COL.w / 2;
+      const cy = COL.y(i) + COL.h(i) / 2;
       const dx = (CARD.x + CARD.w / 2 - cx) * q;
       const dy = (CARD.y + 260 - cy) * q;
       const landed = chips.filter((c) => c.colIdx === i && frame >= landAt(c));
@@ -277,10 +338,10 @@ const Columns: React.FC<{ frame: number }> = ({ frame }) => (
           key={cat.id}
           style={{
             position: "absolute",
-            left: colX(i),
-            top: COL.top,
+            left: COL.x(i),
+            top: COL.y(i),
             width: COL.w,
-            height: COL.h,
+            height: COL.h(i),
             borderRadius: 18,
             background: `${COLORS.surface}`,
             border: `1px solid ${COLORS.border}`,
@@ -305,7 +366,7 @@ const Columns: React.FC<{ frame: number }> = ({ frame }) => (
             </span>
           </div>
           {landed.map((c) => {
-            const p = slotPos(i, c.slot);
+            const p = slotPos(c.slot);
             // Brief violet glow as the chip lands (12f).
             const g = interpolate(frame - landAt(c), [0, 12], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: EASE.out });
             return (
@@ -327,9 +388,11 @@ const Columns: React.FC<{ frame: number }> = ({ frame }) => (
       );
     })}
   </>
-);
+  );
+};
 
 const ChipStack: React.FC<{ frame: number }> = ({ frame }) => {
+  const { stackPos } = fixLayout(useFormat());
   const inP = enterAt(frame, B.stackIn);
   const lift = interpolate(frame, [B.anticipate[0], B.anticipate[1]], [1, 1.05], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: EASE.inOut });
   const waiting = chips.filter((c) => frame < c.launch);
@@ -365,11 +428,12 @@ const ChipStack: React.FC<{ frame: number }> = ({ frame }) => {
 };
 
 /** Chip pose in flight at a (possibly fractional) frame: arc from the stack to its slot. */
-const chipPose = (c: (typeof chips)[number], f: number) => {
+const chipPose = (L: FixLayout, c: (typeof chips)[number], f: number) => {
+  const { stackPos, slotPos, COL } = L;
   const p = enterAt(f, c.launch, B.flight); // overshoots slightly past the slot, then settles
   const s = stackPos(0);
-  const sl = slotPos(c.colIdx, c.slot);
-  const t = { x: colX(c.colIdx) + sl.x + CHIP.w / 2, y: COL.top + sl.y + CHIP.h / 2 };
+  const sl = slotPos(c.slot);
+  const t = { x: COL.x(c.colIdx) + sl.x + CHIP.w / 2, y: COL.y(c.colIdx) + sl.y + CHIP.h / 2 };
   const ctrl = { x: (s.x + t.x) / 2, y: Math.min(s.y, t.y) - 200 };
   const u = 1 - p;
   return {
@@ -385,16 +449,18 @@ const SHUTTER = 0.5; // fraction of a frame
 const BLUR_SAMPLES = [0.42, 0.26, 0.15, 0.08]; // opacity per trailing sample
 const BLUR_MIN_SPEED = 6; // px/frame before a trail is drawn
 
-const FlyingChips: React.FC<{ frame: number }> = ({ frame }) => (
+const FlyingChips: React.FC<{ frame: number }> = ({ frame }) => {
+  const L = fixLayout(useFormat());
+  return (
   <>
     {chips
       .filter((c) => frame >= c.launch && frame < landAt(c))
       .map((c) => {
-        const now = chipPose(c, frame);
-        const before = chipPose(c, frame - 1);
+        const now = chipPose(L, c, frame);
+        const before = chipPose(L, c, frame - 1);
         const speed = Math.hypot(now.x - before.x, now.y - before.y);
         const poses = speed > BLUR_MIN_SPEED
-          ? BLUR_SAMPLES.map((o, k) => ({ ...chipPose(c, frame - (SHUTTER * (k + 1)) / BLUR_SAMPLES.length), o }))
+          ? BLUR_SAMPLES.map((o, k) => ({ ...chipPose(L, c, frame - (SHUTTER * (k + 1)) / BLUR_SAMPLES.length), o }))
           : [];
         return (
           <React.Fragment key={c.id}>
@@ -430,7 +496,8 @@ const FlyingChips: React.FC<{ frame: number }> = ({ frame }) => (
         );
       })}
   </>
-);
+  );
+};
 
 // Card lines: title + COPY.fix.card, typed one every 8f (characters revealed within the slot).
 type Seg = { t: string; hl?: boolean };
@@ -471,6 +538,7 @@ const TypedSegs: React.FC<{ segs: Seg[]; shown: number; caret?: React.ReactNode 
 };
 
 export const ReleaseCard: React.FC<{ frame: number; badgeOpacity?: number }> = ({ frame, badgeOpacity = 1 }) => {
+  const { CARD } = fixLayout(useFormat());
   const inP = enterAt(frame, B.cardIn);
   const writing = frame >= B.writing[0] && frame < B.writing[1] + 8;
   const writingO = enterAt(frame, B.writing[0], 12) * exitAt(frame, B.writing[1], 8);
@@ -596,6 +664,7 @@ const ReadyBadge: React.FC<{ frame: number }> = ({ frame }) => {
 };
 
 export const PublishButton: React.FC<{ frame: number }> = ({ frame }) => {
+  const { PUBLISH } = fixLayout(useFormat());
   const inP = enterAt(frame, B.publishIn);
   const d = frame - B.publishClick;
   const press = d >= 0 && d < DUR.press * 2 ? (d < DUR.press ? interpolate(d, [0, DUR.press], [1, 0.96], { easing: EASE.inOut }) : interpolate(d, [DUR.press, DUR.press * 2], [0.96, 1], { easing: EASE.out })) : 1;
@@ -629,7 +698,9 @@ export const PublishButton: React.FC<{ frame: number }> = ({ frame }) => {
 
 export const Fix: React.FC = () => {
   const frame = useCurrentFrame();
-  const base = cameraAt(frame, camKeys);
+  const fmt = useFormat();
+  const L = fixLayout(fmt);
+  const base = cameraAt(frame, L.camKeys);
   const drift = fixDrift(frame); // never fully static
   // Revealed by the 2D wipe slightly pushed in, then settles; ease-out so it moves from frame 0.
   const settle = interpolate(frame, [0, 75], [1.025, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: EASE.out });
@@ -641,7 +712,7 @@ export const Fix: React.FC = () => {
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.bg, fontFamily: INTER, overflow: "hidden" }}>
       <Backdrop tones={BACKDROP.brand} frameOffset={SCENES.fix.from} />
-      <div style={{ position: "absolute", width: 1920, height: 1080, transformOrigin: "0 0", transform: camTransform(cam) }}>
+      <div style={{ position: "absolute", width: fmt.W, height: fmt.H, transformOrigin: "0 0", transform: camTransform(cam, 0, 0, fmt.W, fmt.H) }}>
         <Dashboard frame={frame} />
         <Columns frame={frame} />
         <ChipStack frame={frame} />
@@ -650,17 +721,13 @@ export const Fix: React.FC = () => {
         <ReleaseCard frame={frame} />
         <PublishButton frame={frame} />
         <Cursor
-          keys={[
-            { f: B.cursorIn, x: 1720, y: 1040 },
-            { f: B.cursorOnButton, x: 1320, y: 640, arc: 0.3 },
-            { f: B.click, x: 1300, y: 628 },
-          ]}
+          keys={L.generateCursor}
           clicks={[B.click]}
           appear={B.cursorIn}
           vanish={B.click + 14}
         />
         <Cursor
-          keys={PUBLISH_CURSOR}
+          keys={L.publishCursor}
           clicks={[B.publishClick]}
           appear={B.cursor2In}
         />

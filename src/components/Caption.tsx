@@ -34,6 +34,10 @@ export const Caption: React.FC<{ text: string; from: number; to: number; bottom?
         opacity: Math.min(1, p),
         transform: `translateY(${(1 - p) * 24}px)`,
         textShadow: "0 4px 28px rgba(0,0,0,0.9), 0 2px 6px rgba(0,0,0,0.8)",
+        // 9:16 top captions often sit over moving UI during push-ins: a soft scrim keeps them clean.
+        ...(fmt.captionTop !== undefined && bottomProp === undefined
+          ? { padding: "18px 0", background: "radial-gradient(ellipse 60% 70% at 50% 50%, rgba(11,13,18,0.78), rgba(11,13,18,0) 100%)" }
+          : {}),
       }}
     >
       {text}
