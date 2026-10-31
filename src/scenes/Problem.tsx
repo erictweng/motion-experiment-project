@@ -95,8 +95,12 @@ export const problemCam = (frame: number) => {
 const FOCUS_BLUR = 3; // px, out-of-focus windows during push-ins
 const focusBlur = (px: number) => (px > 0.05 ? `blur(${px}px)` : undefined);
 
-/** "47" badge digits, world px (measured from render at the wide framing). */
-export const BADGE_WORLD = { x: 290, y: 245.5, fontSize: 22 };
+/** Badge digits' center, world px. Measured from render for 2 digits ("47"); the digits' left edge is fixed, so
+ *  each extra digit moves the center right by half a tabular-digit advance (0.64em, measured: the pill grows 26px
+ *  per digit at the 1.85x opening camera). Keeps the 1D match cut on target for any STATS.merged. */
+const BADGE_FONT_PX = 22;
+const DIGIT_ADVANCE = 0.64 * BADGE_FONT_PX;
+export const BADGE_WORLD = { x: 290 + ((String(STATS.merged).length - 2) * DIGIT_ADVANCE) / 2, y: 245.5, fontSize: BADGE_FONT_PX };
 
 const MergeIcon: React.FC<{ size?: number }> = ({ size = 22 }) => (
   <svg width={size} height={size} viewBox="0 0 16 16">

@@ -242,14 +242,14 @@ const GenerateButton: React.FC<{ frame: number }> = ({ frame }) => {
         gap: 14,
         fontSize: 38,
         fontWeight: 800,
-        color: "#fff",
+        color: BRAND.on,
         opacity: Math.min(1, inP * 1.5) * out,
         transform: `translateY(${(1 - inP) * 40}px) scale(${press * (0.85 + 0.15 * out)})`,
         filter: `brightness(${1 + 0.12 * hover})`,
         boxShadow: `0 0 ${50 + 40 * hover + 80 * burst}px ${COLORS.accent}${hover > 0 ? "aa" : "77"}`,
       }}
     >
-      <Sparkle size={34} color="#fff" />
+      <Sparkle size={34} color={BRAND.on} />
       {C.generate}
     </div>
   );
@@ -616,7 +616,7 @@ export const PublishButton: React.FC<{ frame: number }> = ({ frame }) => {
         justifyContent: "center",
         fontSize: 32,
         fontWeight: 800,
-        color: "#fff",
+        color: BRAND.on,
         opacity: Math.min(1, inP * 1.5),
         transform: `translateY(${(1 - inP) * 30}px) scale(${press})`,
         boxShadow: `0 0 ${40 + 60 * flash}px ${COLORS.accent}99`,

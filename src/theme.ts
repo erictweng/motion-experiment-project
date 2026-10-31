@@ -1,6 +1,6 @@
 import { Easing, staticFile } from "remotion";
 import { loadFont } from "@remotion/fonts";
-import { alpha, shift, tint } from "./color";
+import { alpha, contrast, shift, tint } from "./color";
 
 // Fonts load before the first frame renders (fixes the Times New Roman fallback).
 // Bundled locally in public/fonts (same Inter / JetBrains Mono files Google serves),
@@ -31,6 +31,9 @@ export const BRAND = {
   text: tint(COLORS.accent, 0.46), // accent-colored text on dark UI
   highlight: tint(COLORS.accent, 0.58), // bright core of the 2D wipe band
   soft: (a: number) => alpha(COLORS.accent, a), // translucent accent fills and borders
+  // Text and marks drawn on the accent: white while it meets 3:1 (WCAG, bold text ≥ 18.7px; all button
+  // labels are), otherwise the background ink. Violet → white (4.4:1); a light accent like teal → dark.
+  on: contrast("#FFFFFF", COLORS.accent) >= 3 ? "#FFFFFF" : COLORS.bg,
 };
 
 // Scene timing in frames (60fps). Source of truth = storyboard/STORYBOARD.md

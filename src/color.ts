@@ -55,3 +55,19 @@ export const shift = (hex: string, dh: number, sMul = 1, lMul = 1): string => {
     hslToRgb({ h: (h + dh + 360) % 360, s: Math.min(1, s * sMul), l: Math.min(1, l * lMul) }),
   );
 };
+
+/** WCAG relative luminance (0–1). */
+export const luminance = (hex: string): number => {
+  const lin = (v: number) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const { r, g, b } = hexToRgb(hex);
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+};
+
+/** WCAG contrast ratio between two colors (1–21). */
+export const contrast = (a: string, b: string): number => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};

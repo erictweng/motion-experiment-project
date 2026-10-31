@@ -187,7 +187,7 @@ const EmailCard: React.FC<{ frame: number }> = ({ frame }) => {
               padding: "12px 22px",
               borderRadius: 10,
               background: COLORS.accent,
-              color: "#fff",
+              color: BRAND.on,
               fontSize: 20,
               fontWeight: 800,
             }}
@@ -271,7 +271,7 @@ const Logo: React.FC<{ frame: number }> = ({ frame }) => {
             padding: "26px 50px",
             borderRadius: 22,
             background: COLORS.accent,
-            color: "#fff",
+            color: BRAND.on,
             fontSize: 46,
             fontWeight: 800,
             letterSpacing: -0.5,
@@ -282,7 +282,7 @@ const Logo: React.FC<{ frame: number }> = ({ frame }) => {
         >
           {C.cta}
           <svg width={40} height={40} viewBox="0 0 24 24">
-            <path d="M5 12 H18 M12.5 6.5 L18 12 L12.5 17.5" fill="none" stroke="#fff" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M5 12 H18 M12.5 6.5 L18 12 L12.5 17.5" fill="none" stroke={BRAND.on} strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
         <div
